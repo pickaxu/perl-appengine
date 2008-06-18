@@ -1,9 +1,33 @@
-#This page has the plan for getting Perl supported on Google AppEngine
+# This page has the plan for getting Perl supported on Google AppEngine
 
 = Introduction =
 
-tbd
+This is the current plan for how to get Perl supported on AppEngine.
 
 = Details =
 
-tbd
+It seems like the major pieces of work would be:
+
+  # a hardened perl
+  # docs on hardened perl (what's turned off, what XS code is allowed, etc)
+  # glueing in the hardened perl to App Engine
+  # support the RPC wire format between trusted & untrusted worlds (the way you make API calls to do Datastore access, etc.)
+  # Perl libraries for Datastore, URL Fetch, memcache, image manipulation, etc...
+  # docs for those libraries
+
+It seems like the community could do 1) and 2), using the same
+restrictions as documented for Python on App Engine.  (no writing
+files, no sockets, etc, etc...).  The hardened Perl would probably be
+modified to not allow half the opcodes that Perl normally allows (see
+Opcode.pm for a list), like "syscall", or select/poll/socket, etc.
+And modified to _not_ allow dynamic loading of XS modules.  Only the
+bare minimum of necessary XS modules would be permitted, and
+statically linked.  (smaller footprint == less code to audit.)
+
+Step 3) would probably need to be done by a Googler.  I have contacts
+at Google (not on the AppEngine team) who would be interested in
+helping out with this in their "20% time."
+
+I would imagine that 4) would be open sourced soon enough, at which
+point adding Perl support is trivial.  5) and 6) probably aren't hard
+then, either.
