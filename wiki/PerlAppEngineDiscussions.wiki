@@ -6,6 +6,16 @@ tbd
 
 = Known Discussions =
 
+== Google AppEngine Issues List ==
+
   * http://code.google.com/p/googleappengine/issues/detail?id=34
-  ** http://code.google.com/p/googleappengine/issues/detail?id=34#c436
+  * http://code.google.com/p/googleappengine/issues/detail?id=34#c436
+
+== Perl Monks ==
+
   * http://www.perlmonks.org/?node_id=687790
+  * http://www.perlmonks.org/?node_id=679530
+
+== Use Perl ==
+
+  * http://use.perl.org/article.pl?sid=08/04/10/0130201
