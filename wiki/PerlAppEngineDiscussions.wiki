@@ -1,10 +1,10 @@
 #Documents all known discussions of Perl on Google AppEngine on the web
 
-= Introduction =
-
-tbd
-
 = Known Discussions =
+
+The following are known discussions of Perl on App Engine from around the internet.
+If you find other relevant ones, please add them to this wiki.
+Please also notify the people involved in that discussion of this project.
 
 == Google AppEngine Issues List ==
 
