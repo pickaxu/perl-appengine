@@ -4,7 +4,7 @@
 
 This is the current (initial) plan for how to get Perl supported on AppEngine.
 
-= Details =
+= Work Outline =
 
 The major tasks are:
 
@@ -14,7 +14,8 @@ The major tasks are:
     # This might also include changes to the Perl build system to easily enable the creation of a suitable executable which links necessary XS modules statically and disallows dynamic linking. It might need to turn off certain support at compile time rather than depending on Safe.pm.
     # Appropriate test cases and documentation should be written.
     # The community could do this, without help from the Google App Engine team.
-  # Writing the public version of the Google API's (i.e. base classes that define the API which need to be subclassed in order to achieve the desired functionality) (This would start with the test cases and the documentation.)
+  # Writing the public version of the Google API's (i.e. base classes that define the API which need to be subclassed in order to achieve the desired functionality)
+    # Appropriate test cases and documentation should be written.
     # The community could do this, without help from the Google App Engine team.
   # Writing the Development Kit with a built-in web server
     # Appropriate test cases and documentation should be written.
