@@ -6,28 +6,12 @@ This is the current (initial) plan for how to get Perl supported on AppEngine.
 
 = Details =
 
-It seems like the major pieces of work would be:
+The major tasks are:
 
-  # a hardened perl
-  # docs on hardened perl (what's turned off, what XS code is allowed, etc)
-  # glueing in the hardened perl to App Engine
-  # support the RPC wire format between trusted & untrusted worlds (the way you make API calls to do Datastore access, etc.)
-  # Perl libraries for Datastore, URL Fetch, memcache, image manipulation, etc...
-  # docs for those libraries
-
-It seems like the community could do 1) and 2), using the same
-restrictions as documented for Python on App Engine.  (no writing
-files, no sockets, etc, etc...).  The hardened Perl would probably be
-modified to not allow half the opcodes that Perl normally allows (see
-Opcode.pm for a list), like "syscall", or select/poll/socket, etc.
-And modified to _not_ allow dynamic loading of XS modules.  Only the
-bare minimum of necessary XS modules would be permitted, and
-statically linked.  (smaller footprint == less code to audit.)
-
-Step 3) would probably need to be done by a Googler.  I have contacts
-at Google (not on the AppEngine team) who would be interested in
-helping out with this in their "20% time."
-
-I would imagine that 4) would be open sourced soon enough, at which
-point adding Perl support is trivial.  5) and 6) probably aren't hard
-then, either.
+  # Making Perl "safe" for the App Engine cloud (using Safe.pm ? so it can't do things that are [http://code.google.com/appengine/docs/python/sandbox.html not allowed in the cloud] such as attempting to open a socket, write to a file, or do dynamic linking to XS extensions outside of Core. Code that performs these illegal actions must raise an error.) (This would start with the test cases and the documentation.) The community could do this, without help from the Google App Engine team.
+    #  This might also include changes to the Perl build system to easily enable the creation of a suitable executable which links necessary XS modules statically and disallows dynamic linking. 
+  # Writing the public version of the Google API's (i.e. base classes that define the API which need to be subclassed in order to achieve the desired functionality) (This would start with the test cases and the documentation.) The community could do this, without help from the Google App Engine team.
+  # Writing the Development Kit with a built-in web server (This would start with the test cases and the documentation.) The community could do this, without help from the Google App Engine team.
+  # Writing the Development Kit "container" (i.e. the glue code which routes requests arriving at the web server to the perl interpreter and back. This would also include the low-level implementations of the public base classes which implement work-alike functionality to the Datastore, Mail, Images, Memcache, URL Fetch, and Users libraries provided by Google.) (This would start with the test cases and the documentation.) The community could do this, without help from the Google App Engine team. Writing this container would result in the recommended list of Perl modules to be included by default in the Google App Engine implementation along with the core Perl modules.)
+  # Determining what would be the recommended list of Perl modules to be included by default in the Google App Engine implementation along with the core Perl modules. The community could do this, without help from the Google App Engine team.
+  # Writing the Google App Engine "container" (i.e. the glue code which routes requests arriving at the web server to the perl interpreter and back. This would also include the low-level implementations of the public base classes which interface to the Datastore, Mail, Images, Memcache, URL Fetch, and Users API's.) (And the documentation.) This would have to be done by someone within Google, perhaps on the App Engine team or working in conjunction with them.
