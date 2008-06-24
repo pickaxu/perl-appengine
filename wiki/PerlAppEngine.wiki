@@ -6,7 +6,15 @@ This is the current (initial) plan for how to get Perl supported on AppEngine.
 
 = Work Outline =
 
-The major tasks are:
+In some sense, we should imitate Google's Python code base, which you can see here.
+
+  http://googleappengine.googlecode.com/svn/trunk/
+
+You can check out the sources to your local system this way.
+
+  svn checkout http://googleappengine.googlecode.com/svn/trunk/ google-appengine
+
+The major tasks seem to be:
 
   # Making Perl "safe" for the App Engine cloud.
     # This might be done using Safe.pm so Perl can't do things that are [http://code.google.com/appengine/docs/python/sandbox.html not allowed in the cloud] such as attempting to open a socket, write to a file, or do dynamic linking.
