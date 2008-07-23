@@ -16,22 +16,24 @@ my $server_socket = IO::Socket::INET->new(Listen => 10,
     or die "Couldn't listen to socket.";
 
 print "Accepting from http://127.0.0.1:9000/ ...\n";
-my $client_socket = $server_socket->accept
-    or die;
+while (my $client_socket = $server_socket->accept) {
+    my $child_pid = fork;
+    next if $child_pid;
+    if (!defined($child_pid)) {
+        die "Error forking.";
+    }
 
-print "socket = $client_socket, fileno = ", fileno($client_socket), "\n";
+    print "socket = $client_socket, fileno = ", fileno($client_socket), "\n";
 
-open(my $devnull_fh, "+</dev/null") or die "no dev null";
+    open(my $devnull_fh, "+</dev/null") or die "no dev null";
 
-# for now...
-my $apiproxy_socket = $devnull_fh;
+    # for now...
+    my $apiproxy_socket = $devnull_fh;
 
-dup2(fileno($client_socket), 0) == 0 or die "dup2 of 0 failed: $!";
-dup2(fileno($client_socket), 1) == 1 or die "dup2 of 1 failed: $!";
-dup2(fileno($devnull_fh), 2) == 2 or die "dup2 of 2 failed: $!";
-dup2(fileno($apiproxy_socket), 3) == 3 or die "dup2 of 3 failed: $!";
+    dup2(fileno($client_socket), 0) == 0 or die "dup2 of 0 failed: $!";
+    dup2(fileno($client_socket), 1) == 1 or die "dup2 of 1 failed: $!";
+    #dup2(fileno($devnull_fh), 2) == 2 or die "dup2 of 2 failed: $!";
+    dup2(fileno($apiproxy_socket), 3) == 3 or die "dup2 of 3 failed: $!";
 
-exec(qw(perl -I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect app.pl));
-
-
-
+    exec(qw(perl -I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect app.pl));
+}

