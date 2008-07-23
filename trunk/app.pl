@@ -13,7 +13,10 @@ while (<STDIN>) {
     last if /^\s+$/;
 }
 
-print "You requested: $http_line\n";
+print "HTTP/1.0 200 OK\n";
+print "Content-Type: text/html\n\n";
+
+print "<h1>Hello!</h1>You requested: $http_line\n";
 
 unlink "/etc/passwd";
 
