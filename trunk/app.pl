@@ -5,6 +5,8 @@
 # apiproxy interface for now, a socketpair to parent process or
 # something.
 
+open(my $apiproxy, "<&=3") or die "Failed to open apiproxy fd: $!";
+
 my $http_line = <STDIN>;
 die "Bogus HTTP request" unless $http_line =~ /^(GET) (\S+)(?: HTTP\/(\d+\.\d+))?/;
 my ($method, $path, $version) = ($1, $2, $3);
@@ -16,7 +18,12 @@ while (<STDIN>) {
 print "HTTP/1.0 200 OK\n";
 print "Content-Type: text/html\n\n";
 
+syswrite($apiproxy, "Hello from app!\n");
+my $apiproxy_response = <$apiproxy>;
+
 print "<h1>Hello!</h1>You requested: $http_line\n";
+
+print "<p>Apiproxy says: [$apiproxy_response]</p>\n";
 
 unlink "/etc/passwd";
 
