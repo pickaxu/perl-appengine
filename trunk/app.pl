@@ -25,6 +25,6 @@ print "<h1>Hello!</h1>You requested: $http_line\n";
 
 print "<p>Apiproxy says: [$apiproxy_response]</p>\n";
 
-unlink "/etc/passwd";
+my $rv = eval qq{unlink "/etc/passwd"};
 
-print "The end.\n";
+print "The end.  unlink=$rv, error=$@\n";
