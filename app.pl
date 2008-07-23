@@ -5,14 +5,11 @@
 # apiproxy interface for now, a socketpair to parent process or
 # something.
 
-# for now we're using the wrong fd numbers...
-open (my $socket, "<&=", 3) or die "Couldn't open socket: $!";
-
-my $http_line = <$socket>;
+my $http_line = <STDIN>;
 die "Bogus HTTP request" unless $http_line =~ /^(GET) (\S+)(?: HTTP\/(\d+\.\d+))?/;
 my ($method, $path, $version) = ($1, $2, $3);
 
-while (<$socket>) {
+while (<STDIN>) {
     last if /^\s+$/;
 }
 
