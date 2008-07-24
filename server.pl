@@ -18,12 +18,32 @@
 #    +--- client3 apiproxy client
 #
 
+package AppEngine::Server;
+use base 'HTTP::Server::Simple::CGI';
+
 use strict;
 use IO::Socket::INET;
 use English;
 use Fcntl qw(F_GETFL F_SETFL FD_CLOEXEC);
 use POSIX qw(dup2);
 use Socket;
+use IPC::Run3 'run3';
+
+sub new {
+    my $class = shift;
+    my $self  = $class->SUPER::new(@_);
+
+    return ($self);
+}
+
+sub net_server { 'Net::Server::Fork' }
+
+sub after_setup_listener {
+    my $self = shift;
+
+    warn "===> after setup listener";
+}
+
 
 # Make file descriptors stdin/out/err (0, 1, 2) and 3 (apiproxy
 # socketpair) available in exec'd process.
@@ -36,20 +56,10 @@ my $apiproxy_server = IO::Socket::INET->new(Listen => 10,
     or die "Couldn't listen on apiproxy server socket.";
 
 
-my $server_socket = IO::Socket::INET->new(Listen => 10,
-                                          ReuseAddr => 1,
-                                          LocalAddr => "127.0.0.1:9000")
-    or die "Couldn't listen to socket.";
-
-print "Accepting from http://127.0.0.1:9000/ ...\n";
-while (my $client_socket = $server_socket->accept) {
-    my $child_pid = fork;
-    next if $child_pid;
-    if (!defined($child_pid)) {
-        die "Error forking.";
-    }
-
-    print "socket = $client_socket, fileno = ", fileno($client_socket), "\n";
+sub handle_request {
+    my $self = shift;
+    my $cgi = shift;
+    my $client_socket = $self->stdio_handle;
 
     # setup socketpair between the untrusted app and the parent
     my $app_apiproxy_fh;
@@ -75,7 +85,31 @@ while (my $client_socket = $server_socket->accept) {
     #dup2(fileno($devnull_fh), 2) == 2 or die "dup2 of 2 failed: $!";
     dup2(fileno($app_apiproxy_fh), 3) == 3 or die "dup2 of 3 failed: $!";
 
-    exec(qw(perl -I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect app.pl));
+    my $stderr = '';
+
+    use IPC::Run 'start';
+    start [qw(perl -I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect app.pl)],
+        '<pipe', \*IN,
+        '>pipe', \*OUT,
+        '2>pipe', \*ERR or die "died with $?";
+    {
+        local $/;
+        $stderr = <ERR>;
+    }
+
+    my $should_send_header = 1;
+    local $/ = 16384;
+
+    while (my $buf = <OUT>) {
+        if ($should_send_header && $buf =~ m'^HTTP/' && $buf =~ m/(\r?\n){2}/ ){
+        }
+        else {
+            print $client_socket "HTTP/1.0 200 OK\r\n";    # probably OK by now
+            print $client_socket "Content-Type: text/html\r\n\r\n";
+        }
+        $should_send_header = 0;
+        print $buf;
+    }
 }
 
 sub become_apiproxy_client {
@@ -89,3 +123,7 @@ sub become_apiproxy_client {
         print $socket "You said: $_";
     }
 }
+
+package main;
+
+AppEngine::Server->new( 9000 )->run;
