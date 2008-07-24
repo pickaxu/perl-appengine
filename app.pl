@@ -27,7 +27,7 @@ print "The end.  unlink=$rv, error=$@\n";
 print "yatta!!\n";
 
 
-syswrite($apiproxy, "Hello from app again, we are at $ENV{PATHINFO}!\n");
+syswrite($apiproxy, "Hello from app again, we are at $ENV{PATH_INFO}!\n");
 
 my $x = <$apiproxy>;
 
