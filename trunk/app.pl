@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+use strict;
 #
 # This should eventually feel like a CGI (or FastCGI?) environment.
 # same filedescriptors, etc.  Probably use another fd (3?) for the
@@ -16,7 +17,7 @@ syswrite($apiproxy, "Hello from app!\n");
 
 my $apiproxy_response = <$apiproxy>;
 
-print "<h1>Hello!</h1>You requested: $http_line\n";
+print "<h1>Hello!</h1>You requested: $ENV{PATH_INFO}\n";
 
 print "<p>Apiproxy says: [$apiproxy_response]</p>\n";
 
