@@ -61,7 +61,7 @@ while (my $client_socket = $server_socket->accept) {
     die "Couldn't fork: $!" unless defined $app_pid;
     if ($app_pid) {
         close($client_socket);
-        become_apiproxy_server($parent_apiproxy_fh);
+        become_apiproxy_client($parent_apiproxy_fh);
         exit 0;
     }
 
@@ -78,7 +78,7 @@ while (my $client_socket = $server_socket->accept) {
     exec(qw(perl -I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect app.pl));
 }
 
-sub become_apiproxy_server {
+sub become_apiproxy_client {
     my $socket = shift;
     # TODO(bradfitz): connect to master apiproxy server (the Python
     # process, later)
