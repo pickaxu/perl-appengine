@@ -27,7 +27,7 @@ use English;
 use Fcntl qw(F_GETFL F_SETFL FD_CLOEXEC);
 use POSIX qw(dup2);
 use Socket;
-use IPC::Run3 'run3';
+use IPC::Run 'start';
 
 sub new {
     my $class = shift;
@@ -87,7 +87,6 @@ sub handle_request {
 
     my $stderr = '';
 
-    use IPC::Run 'start';
     start [qw(perl -I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect app.pl)],
         '<pipe', \*IN,
         '>pipe', \*OUT,
