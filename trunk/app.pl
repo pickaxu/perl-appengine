@@ -6,11 +6,12 @@
 # something.
 
 use strict;
+use Data::Dumper;
 
 open(my $apiproxy, "<&=3") or die "Failed to open apiproxy fd: $!";
 
 warn "mosorze from stderr";
-print "<h1>Hello!</h1>You requested path: $ENV{PATH_INFO}\n";
+print "<h1>Hello!</h1>Your requested path from \$ENV{PATH_INFO}: $ENV{PATH_INFO}\n";
 
 syswrite($apiproxy, "Hello from app!\n");
 my $apiproxy_response = <$apiproxy>;
@@ -22,4 +23,7 @@ print "<p>Apiproxy response: [$x]</p>";
 
 my $rv = eval qq{unlink "/tmp/fooooo"};
 print "<p>The end.  unlink=$rv, error=$@</p>\n";
+
+
+print "<pre>ENV = ", Dumper(\%ENV), "</pre>\n";
 
