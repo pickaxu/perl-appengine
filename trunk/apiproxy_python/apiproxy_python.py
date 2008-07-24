@@ -29,7 +29,16 @@ class MainPage(webapp.RequestHandler):
     self.response.out.write("""
           API proxy interface;
           <form action="/do_req" method="post">
-            <div>service: <input name='service' size='20'/></div>
+            <div>service: <select name='service'>
+                 <option></option>
+                 <option>datastore_v3</option>
+                 <option>images</option>
+                 <option>mail</option>
+                 <option>memcache</option>
+                 <option>urlfetch</option>
+                 <option>user</option>
+              </select>
+            </div>
             <div>method: <input name='method' size='20'/></div>
             <div>request:<br/><textarea name="request" rows="20" cols="60"></textarea></div>
             <div><input type="submit" value="submit"></div>
@@ -42,25 +51,39 @@ class DoRequest(webapp.RequestHandler):
   def post(self):
     service = self.request.get('service')
     method = self.request.get('method')
-    request = self.request.get('request')
+    request_bytes = self.request.get('request')
     apiproxy = apiproxy_stub_map.apiproxy
     stub = apiproxy.GetStub(service)
     if not stub:
       self.response.out.write('<html><body>bogus service</body></html>')
       return
 
-    if method == 'Get':
-      response = MemcacheGetResponse()
-      request = MemcacheGetRequest();
-    elif method == 'Set':
-      response = MemcacheSetResponse()
-      request = MemcacheSetRequest();
-    else:
-      raise "Unknown method"
+    proto_class = {
+      "datastore_v3": {},
+      "user": {},
+      "urlfetch": {},
+      "mail": {},
+      "memcache": {
+        "Get": (MemcacheGetRequest, MemcacheGetResponse),
+        "Set": (MemcacheSetRequest, MemcacheSetResponse),
+        },
+      "images": {},
+      }
 
-    stub.MakeSyncCall(service, method, 
+    if not method in proto_class[service]:
+      self.response.out.write('<html><body>unknown/unmapped method'
+                              + '</body></html>')
+      return
 
-    self.response.out.write('<html><body>' + request + '</body></html>')
+    ctors = proto_class[service][method]
+    request = ctors[0]()
+    response = ctors[1]()
+
+    request.ParseFromString(request_bytes)
+
+    stub.MakeSyncCall(service, method, request, response)
+
+    self.response.out.write('Response: [' + response.Encode() + ']')
 
 
 application = webapp.WSGIApplication([
