@@ -87,7 +87,7 @@ sub handle_request {
 
     my $stderr = '';
 
-    start [qw(perl -I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect app.pl)],
+    start [qw(perl -I. -I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect app.pl)],
         '<pipe', \*IN,
         '>pipe', \*OUT,
         '2>pipe', \*ERR or die "died with $?";
