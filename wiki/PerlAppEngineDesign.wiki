@@ -4,8 +4,6 @@
 
 Add your content here.
 
-= Details =
-
 = Distributions =
 
  * Google-AppEngine                    - the public interfaces (i.e. abstract base classes) of the Google API's
