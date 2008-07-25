@@ -1,4 +1,4 @@
-Describes the overall design of the project
+#summary Describes the overall design of the project
 
 = Introduction =
 
