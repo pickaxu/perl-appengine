@@ -16,6 +16,7 @@ Please also notify the people involved in that discussion of this project.
   * http://www.perlmonks.org/?node_id=687790
   * http://www.perlmonks.org/?node_id=679530
 
-== Use Perl ==
+== Other Blogs ==
 
   * http://use.perl.org/article.pl?sid=08/04/10/0130201
+  * http://brad.livejournal.com/2388824.html
