@@ -1,4 +1,4 @@
-#summary Describes the overall design of the project
+#summary Design of the Perl App Engine
 
 = Introduction =
 
