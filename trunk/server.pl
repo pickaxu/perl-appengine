@@ -97,6 +97,9 @@ sub handle_request {
     {
         local $/;
         $stderr = <ERR>;
+        if (length($stderr)) {
+            print STDERR "app's stderr: [$stderr]\n";
+        }
     }
 
     my $should_send_header = 1;
