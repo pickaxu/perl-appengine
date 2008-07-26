@@ -144,7 +144,7 @@ sub become_apiproxy_client {
         my $success = $res->is_success ? 1 : 0;
         my $body;
         if ($success) {
-            if ($res->content =~ /^Response: [(.*)]\s*$/s) {
+            if ($res->content =~ /^Response: \[(.*)\]\s*$/s) {
                 $body = $1;
             } else {
                 $body = $res->content;
@@ -153,7 +153,7 @@ sub become_apiproxy_client {
         } else {
             $body = $res->status_line;
         }
-        print STDERR "Got apiproxy result (for $service, $method) of success=$success:";
+        print STDERR "Got apiproxy result (for $service, $method) of success=$success:\n";
         print STDERR Dumper($body);
         print $socket "apiresult $success ", length($body), "\n$body";
     }

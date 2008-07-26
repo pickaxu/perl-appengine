@@ -29,7 +29,13 @@ $res = eval {
     APIProxy::sync_call("memcache", "Set", $set_req_pb);
 };
 
-print "Memcache set response was: <pre>", Dumper([$res, $@]), "</pre>";
+if ($@) {
+    print "Memcache set error was: <pre>", Dumper([$res, $@]), "</pre>";
+} else {
+    my $escaped = $res;
+    $escaped =~ s/([^\w])/"\\x" . sprintf("%02x", ord($1))/eg;
+    print "<p>Memcache set response was success: $escaped.</p>";
+}
 
 my $rv = eval qq{unlink "/tmp/fooooo"};
 print "<p>The end.  unlink=$rv, error=$@</p>\n";
