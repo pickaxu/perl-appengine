@@ -73,7 +73,10 @@ message MemcacheSetRequest {
 >>> sreq.SerializeToString()
 '\x0b\x12\x03foo\x1a\tFOO_VALUE5\xff\x00\x00\x00\x0c'
 
-
+// add:
+'\x0b\x12\x03foo\x1a\tFOO_VALUE(\x025\xff\x00\x00\x00\x0c'
+// set:
+'\x0b\x12\x03foo\x1a\tFOO_VALUE(\x015\xff\x00\x00\x00\x0c'
 
 message MemcacheSetResponse { 
   enum SetStatusCode { 
