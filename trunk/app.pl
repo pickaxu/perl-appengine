@@ -1,25 +1,26 @@
 #!/usr/bin/perl
 #
-# This should eventually feel like a CGI (or FastCGI?) environment.
-# same filedescriptors, etc.  Probably use another fd (3?) for the
-# apiproxy interface for now, a socketpair to parent process or
-# something.
+# This is the untrusted app, running in a hardened CGI environment.
+#
+# The HTTP response goes to stdout.  Logging to stderr.  Any interaction
+# with the App Engine services (Datastore, Memcache, Images, ...) needs
+# to be done through the APIProxy.
+#
 
 use strict;
 use Data::Dumper;
-
-open(my $apiproxy, "<&=3") or die "Failed to open apiproxy fd: $!";
+use APIProxy;
 
 warn "mosorze from stderr";
 print "<h1>Hello!</h1>Your requested path from \$ENV{PATH_INFO}: $ENV{PATH_INFO}\n";
 
-syswrite($apiproxy, "Hello from app!\n");
-my $apiproxy_response = <$apiproxy>;
+my $apiproxy_response;
+
+$apiproxy_response = APIProxy::sync_call("Hello from app!\n");
 print "<p>Apiproxy response: [$apiproxy_response]</p>\n";
 
-syswrite($apiproxy, "Hello from app again, we are at $ENV{PATH_INFO}!\n");
-my $x = <$apiproxy>;
-print "<p>Apiproxy response: [$x]</p>";
+$apiproxy_response = APIProxy::sync_call("Hello from app again, we are at $ENV{PATH_INFO}!\n");
+print "<p>Apiproxy response: [$apiproxy_response]</p>\n";
 
 my $rv = eval qq{unlink "/tmp/fooooo"};
 print "<p>The end.  unlink=$rv, error=$@</p>\n";

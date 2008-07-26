@@ -7,11 +7,9 @@ package APIProxy;
 use strict;
 
 open(my $apiproxy, "<&=3") or die "Failed to open apiproxy fd: $!";
-warn "CONNECT apiproxy = $apiproxy\n";
 
 sub sync_call {
     my ($request) = @_;
-    warn "now apiproxy = $apiproxy\n";
     syswrite($apiproxy, $request);
     return scalar <$apiproxy>;
     
