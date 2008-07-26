@@ -134,10 +134,12 @@ sub become_apiproxy_client {
         if ($rv != $request_length) {
             die "Failed to read entire request from app.";
         }
-        my $res = $ua->request(POST "http://127.0.0.1:8080/do_req", [
-                                   service => $service,
-                                   method => $method,
-                                   request => $pb_request, ]);
+        my $req = POST "http://127.0.0.1:8080/do_req", [
+            service => $service,
+            method => $method,
+            request => $pb_request, ];
+        print STDERR "Sending request: ", $req->as_string, "\n";
+        my $res = $ua->request($req);
 
         my $success = $res->is_success ? 1 : 0;
         my $body;

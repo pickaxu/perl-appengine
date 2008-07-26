@@ -2,6 +2,7 @@
 
 import cgi
 import wsgiref.handlers
+import logging
 
 from google.appengine.ext import webapp
 from google.appengine.api import apiproxy_stub_map
@@ -79,7 +80,8 @@ class DoRequest(webapp.RequestHandler):
     request = ctors[0]()
     response = ctors[1]()
 
-    print "Request bytes: ", request_bytes
+    logging.debug("Request byte size: " + str(len(request_bytes)))
+    logging.debug("Request bytes: " + request_bytes)
 
     try:
       request.ParseFromString(request_bytes)
