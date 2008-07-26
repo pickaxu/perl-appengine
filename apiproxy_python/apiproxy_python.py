@@ -50,6 +50,11 @@ class MainPage(webapp.RequestHandler):
 
 class DoRequest(webapp.RequestHandler):
   def post(self):
+    # This is required so we get binary data, and not an implict
+    # upconversion to Unicode, losing our \xff bytes and such.
+    # I'd argue that this is a bug.  Took me hours to trace.
+    self.request.charset = None
+
     service = self.request.get('service')
     method = self.request.get('method')
     request_bytes = self.request.get('request')
@@ -79,9 +84,6 @@ class DoRequest(webapp.RequestHandler):
     ctors = proto_class[service][method]
     request = ctors[0]()
     response = ctors[1]()
-
-    logging.debug("Request byte size: " + str(len(request_bytes)))
-    logging.debug("Request bytes: " + request_bytes)
 
     try:
       request.ParseFromString(request_bytes)
