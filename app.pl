@@ -22,20 +22,26 @@ print "<p>Apiproxy response: [$res]</p>\n";
 $res = APIProxy::sync_call("Hello from app again, we are at $ENV{PATH_INFO}!\n");
 print "<p>Apiproxy response: [$res]</p>\n";
 
-my $set_req_pb = "\x0b\x12\x03foo\x1a\tFOO_VALUE5\xff\x00\x00\x00\x0c";
-print "<p>Length of request: @{[ length($set_req_pb) ]}.</p>";
-
-$res = eval {
-    APIProxy::sync_call("memcache", "Set", $set_req_pb);
+my $do_set = sub {
+    my $pb = shift;
+    my $res = eval {
+        APIProxy::sync_call("memcache", "Set", $pb);
+    };
+    if ($@) {
+        print "Memcache set error was: <pre>", Dumper([$res, $@]), "</pre>";
+    } else {
+        my $escaped = $res;
+        $escaped =~ s/([^\w])/"\\x" . sprintf("%02x", ord($1))/eg;
+        print "<p>Memcache set response was success: $escaped.</p>";
+    }
 };
 
-if ($@) {
-    print "Memcache set error was: <pre>", Dumper([$res, $@]), "</pre>";
-} else {
-    my $escaped = $res;
-    $escaped =~ s/([^\w])/"\\x" . sprintf("%02x", ord($1))/eg;
-    print "<p>Memcache set response was success: $escaped.</p>";
-}
+# add: (will work on the first try of SDK being up)
+$do_set->("\x0b\x12\x03foo\x1a\tFOO_VALUE(\x025\xff\x00\x00\x00\x0c");
+# set:
+$do_set->("\x0b\x12\x03foo\x1a\tFOO_VALUE(\x015\xff\x00\x00\x00\x0c");
+# add: (should return a "NOT_STORED" response)
+$do_set->("\x0b\x12\x03foo\x1a\tFOO_VALUE(\x025\xff\x00\x00\x00\x0c");
 
 my $rv = eval qq{unlink "/tmp/fooooo"};
 print "<p>The end.  unlink=$rv, error=$@</p>\n";
