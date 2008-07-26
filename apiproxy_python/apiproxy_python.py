@@ -79,10 +79,17 @@ class DoRequest(webapp.RequestHandler):
     request = ctors[0]()
     response = ctors[1]()
 
-    request.ParseFromString(request_bytes)
+    print "Request bytes: ", request_bytes
 
-    stub.MakeSyncCall(service, method, request, response)
-
+    try:
+      request.ParseFromString(request_bytes)
+      stub.MakeSyncCall(service, method, request, response)
+    except Exception, e:
+      self.response.out.write('Error doing sync-call: ' + str(type(e))
+                              + " on request: " + request_bytes
+                              + " (of length " + str(len(request_bytes)) + ")")
+      return
+    
     self.response.out.write('Response: [' + response.Encode() + ']')
 
 
