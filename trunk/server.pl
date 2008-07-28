@@ -31,11 +31,13 @@ use IPC::Run 'start';
 use LWP::UserAgent;
 use HTTP::Request::Common;
 use Data::Dumper;
+use Getopt::Long;
 
 sub new {
     my $class = shift;
-    my $self  = $class->SUPER::new(@_);
-
+    my ($port, $app_dir) = @_;
+    my $self  = $class->SUPER::new($port);
+    $self->{pae_appdir} = $app_dir;
     return ($self);
 }
 
@@ -89,8 +91,12 @@ sub handle_request {
     dup2(fileno($app_apiproxy_fh), 3) == 3 or die "dup2 of 3 failed: $!";
 
     my $stderr = '';
+    my $appdir = $self->{pae_appdir};
 
-    start [qw(perl -I. -I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect app.pl)],
+    start ["perl",
+           "-I.",  # APIProxy
+           qw(-I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect),
+           "-I$appdir", "$appdir/app.pl"],
         '<pipe', \*IN,
         '>pipe', \*OUT,
         '2>pipe', \*ERR or die "died with $?";
@@ -162,6 +168,43 @@ sub become_apiproxy_client {
     }
 }
 
+############################################################################
 package main;
+use Getopt::Long;
 
-AppEngine::Server->new( 9000 )->run;
+sub usage {
+    warn <<END;
+Runs a development application server for an application.
+
+dev_appserver.pl [options] <application root>
+
+Application root must be the path to the application to run in this server.
+Must contain a valid app.pl file.
+
+Options:
+  --help, -h                 View this helpful message.
+  TODO(bradfitz): steal more options from python dev_appserver
+
+END
+
+    exit(1);
+}
+
+my $opt_help;
+my $bind_address;
+usage() unless GetOptions(
+    "address|a=s" => \$bind_address,
+    "help|h"      => \$opt_help,
+    # TODO(bradfitz): clone more of the interesting
+    # options from python_sdk_partial/dev_appserver.py
+    );
+
+usage() if $opt_help;
+
+my $app_dir = shift;
+usage() unless $app_dir;
+die "Directory doesn't exist.\n" unless -d $app_dir;
+die "Forbidden characters in directory name.\n" if $app_dir =~ /[^\w\-\/\.]/;
+die "Directory doesn't contain an app.pl file.\n" unless -e "$app_dir/app.pl";
+
+AppEngine::Server->new(9000, $app_dir)->run;
