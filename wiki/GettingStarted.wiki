@@ -12,7 +12,9 @@ Here are instructions on how to keep abreast of what's going on (as an anonymous
 
 = Details =
 
+{{{
  cd $HOME/src
  svn checkout http://perl-appengine.googlecode.com/svn/trunk/  perl-appengine
  svn checkout http://sys-protect.googlecode.com/svn/trunk/     sys-protect
  svn checkout http://protobuf-perl.googlecode.com/svn/trunk/   protobuf-perl
+}}}
