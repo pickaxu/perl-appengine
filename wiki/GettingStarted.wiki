@@ -19,7 +19,7 @@ Here are instructions on how to keep abreast of what's going on (as an anonymous
  svn checkout http://protobuf-perl.googlecode.com/svn/trunk/   protobuf-perl
 }}}
 
-= Initial Setup =
+= Later Synchronization =
 
 {{{
  cd $HOME/src
