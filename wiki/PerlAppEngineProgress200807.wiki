@@ -9,14 +9,12 @@ This is the body of an email sent by Brad Fitzpatrick after OSCON 2008.
 Now that OSCON is over, and before I get back to work on Monday, let me give everybody here (111 people!) an overview of what we all got done on this project while at OSCON.
 
 Terminology:
-   GAE -- Google App Engine
-   PAE -- Perl App Engine
-   Protos -- protocol buffer files
-   PAE SDK -- this whole project (a dev kit we give to people to test PAE apps)
+ * GAE -- Google App Engine
+ * PAE -- Perl App Engine
+ * Protos -- protocol buffer files
+ * PAE SDK -- this whole project (a dev kit we give to people to test PAE apps)
 
-============================================
-First off, the three repos we're hacking in:
-============================================
+== First off, the three repos we're hacking in: ==
 
 1) http://code.google.com/p/perl-appengine/
   ... the main project, to provide a perl dev environment that feels like what it'd actually feel like on GAE.  The goal here is to provide a CGI (or future: FastCGI) environment in which people can start porting their apps while the other work goes in parallel.  This is where all the current focus is.  Status: see bottom of this email.
@@ -33,9 +31,7 @@ First off, the three repos we're hacking in:
     the notable part so far is perl_generator.{cc,h}, which emit Perl descriptions of the .proto files from the C++ protoc compiler.  Once all the GAE service files are open sourced (currently just memcache), then we'll compiler them all to Perl and ship them with the PAE SDK above (the "perl-appengine" project).  Also, the PAE SDK will require the "Protobuf" CPAN module.  (which currently depends on Moose, as I experiment with it... I talked with a lot of Moose people at OSCON.  I'm still wavering on it, but I'm willing on giving it a shot.  If it's too heavy or slow or hard to install on different distros I'll go back to catching AUTOLOAD and replacing subs in symbol tables)
 
 
-=========================================
-Status/code overview of "perl-appengine":
-=========================================
+= Status/code overview of "perl-appengine": =
 
 Let me give you a walk-through of the perl-appengine codebase....
 
@@ -62,9 +58,7 @@ http://perl-appengine.googlecode.com/svn/trunk/proto/
   .. where I'm checking in the GAE apiproxy service protos, as they're released.  Currently only the memcache service has been released.  We could reverse engineer them all from the Python SDK (the compiled *_pb2.py files), but I'd rather just wait and get the originals from the GAE team, complete with useful comments.
 
 
-===========================
-Things you could hack on...
-===========================
+= Things you could hack on... =
 
 I'm going to be working on protocol buffers, but here's other stuff I'd like help on:
 
