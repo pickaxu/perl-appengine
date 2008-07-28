@@ -12,30 +12,8 @@ use Data::Dumper;
 use AppEngine::APIProxy;
 use AppEngine::Service::MemcacheProto;
 
-warn "mosorze from stderr";
-print "<h1>Hello!</h1>Your requested path from \$ENV{PATH_INFO}: $ENV{PATH_INFO}\n";
-
-my $res;
-
-$res = AppEngine::APIProxy::sync_call("Hello from app!\n");
-print "<p>Apiproxy response: [$res]</p>\n";
-
-$res = AppEngine::APIProxy::sync_call("Hello from app again, we are at $ENV{PATH_INFO}!\n");
-print "<p>Apiproxy response: [$res]</p>\n";
-
-my $do_set = sub {
-    my $pb = shift;
-    my $res = eval {
-        AppEngine::APIProxy::sync_call("memcache", "Set", $pb);
-    };
-    if ($@) {
-        print "Memcache set error was: <pre>", Dumper([$res, $@]), "</pre>";
-    } else {
-        my $escaped = $res;
-        $escaped =~ s/([^\w])/"\\x" . sprintf("%02x", ord($1))/eg;
-        print "<p>Memcache set response was success: $escaped.</p>";
-    }
-};
+print "<h1>Hello!</h1>";
+print "You requested path: $ENV{PATH_INFO}\n";
 
 my ($req, $item);
 
@@ -46,16 +24,32 @@ $item->set_key("foo");
 $item->set_value("FOO_VALUE");
 $item->set_expiration_time(255);
 $item->set_set_policy(AppEngine::Service::MemcacheSetRequest::Item::SetPolicy::ADD);
-$do_set->($req);
+do_req("memcache", "Set", $req);
 
 # set:
-$do_set->("\x0b\x12\x03foo\x1a\tFOO_VALUE(\x015\xff\x00\x00\x00\x0c");
-# add: (should return a "NOT_STORED" response)
-$do_set->("\x0b\x12\x03foo\x1a\tFOO_VALUE(\x025\xff\x00\x00\x00\x0c");
+$item->set_set_policy(AppEngine::Service::MemcacheSetRequest::Item::SetPolicy::SET);
+do_req("memcache", "Set", $req);
 
+# add again (won't work)
+$item->set_set_policy(AppEngine::Service::MemcacheSetRequest::Item::SetPolicy::ADD);
+do_req("memcache", "Set", $req);
+
+# just to show failing opcodes:
 my $rv = eval qq{unlink "/tmp/fooooo"};
 print "<p>The end.  unlink=$rv, error=$@</p>\n";
 
-
 print "<pre>ENV = ", Dumper(\%ENV), "</pre>\n";
 
+sub do_req {
+    my ($service, $method, $proto) = @_;
+    my $res = eval {
+        AppEngine::APIProxy::sync_call($service, $method, $proto);
+    };
+    if ($@) {
+        print "$service $method error was: <pre>", Dumper([$res, $@]), "</pre>";
+    } else {
+        my $escaped = $res;
+        $escaped =~ s/([^\w])/"\\x" . sprintf("%02x", ord($1))/eg;
+        print "<p>$service $method response was success: $escaped.</p>";
+    }
+}
