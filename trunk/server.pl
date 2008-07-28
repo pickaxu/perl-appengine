@@ -57,7 +57,7 @@ $SYSTEM_FD_MAX = 3;
 # lazy for now, using TCP instead of unix domain sockets:
 my $apiproxy_server = IO::Socket::INET->new(Listen => 10,
                                             ReuseAddr => 1,
-                                            LocalAddr => "127.0.0.1:9001")
+                                            LocalPort => "9001")
     or die "Couldn't listen on apiproxy server socket.";
 
 
@@ -93,8 +93,12 @@ sub handle_request {
     my $stderr = '';
     my $appdir = $self->{pae_appdir};
 
+    $ENV{CLASS_MOP_NO_XS} = 1;
     start ["perl",
-           "-I.",  # APIProxy
+           "-Ilib",  # AppEngine::APIProxy, ::Service::Memcache, etc.
+           "-Icpanlib/Class-MOP/lib",
+           "-I../protobuf-perl/perl/lib",  # Perl protobuf stuff
+           "-I../protobuf-perl/perl/cpanlib",
            qw(-I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect),
            "-I$appdir", "$appdir/app.pl"],
         '<pipe', \*IN,

@@ -1,9 +1,8 @@
 # Devserver implementation of devappserver, sending the request
 # up a file descriptor to the parent process which sends it down
 # to the python sdk to use the python mock implementations.
-# TODO(bradfitz): actually do that. :) for now just lines of text.
 
-package APIProxy;
+package AppEngine::APIProxy;
 use strict;
 
 open(my $apiproxy, "<&=3") or die "Failed to open apiproxy fd: $!";
@@ -19,7 +18,7 @@ sub sync_call {
     die "Bogus service" unless $service =~ /^\w+$/;
     die "Bogus method" unless $method =~ /^\w+$/;
     if (UNIVERSAL::isa($message, "Protobuf::Message")) {
-        $message = $message->as_string();
+        $message = $message->serialize_to_string;
     }
     die "Bogus message" if ref($message);
     my $len = length $message;
