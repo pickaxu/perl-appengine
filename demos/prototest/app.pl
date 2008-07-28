@@ -10,6 +10,7 @@
 use strict;
 use Data::Dumper;
 use AppEngine::APIProxy;
+use AppEngine::Service::MemcacheProto;
 
 warn "mosorze from stderr";
 print "<h1>Hello!</h1>Your requested path from \$ENV{PATH_INFO}: $ENV{PATH_INFO}\n";
@@ -36,8 +37,17 @@ my $do_set = sub {
     }
 };
 
+my ($req, $item);
+
 # add: (will work on the first try of SDK being up)
-$do_set->("\x0b\x12\x03foo\x1a\tFOO_VALUE(\x025\xff\x00\x00\x00\x0c");
+$req = AppEngine::Service::MemcacheSetRequest->new;
+$item = $req->add_item;
+$item->set_key("foo");
+$item->set_value("FOO_VALUE");
+$item->set_expiration_time(255);
+$item->set_set_policy(AppEngine::Service::MemcacheSetRequest::Item::SetPolicy::ADD);
+$do_set->($req);
+
 # set:
 $do_set->("\x0b\x12\x03foo\x1a\tFOO_VALUE(\x015\xff\x00\x00\x00\x0c");
 # add: (should return a "NOT_STORED" response)
