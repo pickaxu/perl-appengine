@@ -1,0 +1,18 @@
+#summary Getting started
+
+= Introduction =
+
+The code for Perl App Engine is completely in its formative stages (pre-alpha).
+
+Explanations:
+ * PerlAppEngineDesign
+ * PerlAppEngineProgress200807
+
+Here are instructions on how to keep abreast of what's going on (as an anonymous non-committer).
+
+= Details =
+
+ cd $HOME/src
+ svn checkout http://perl-appengine.googlecode.com/svn/trunk/  perl-appengine
+ svn checkout http://sys-protect.googlecode.com/svn/trunk/     sys-protect
+ svn checkout http://protobuf-perl.googlecode.com/svn/trunk/   protobuf-perl
