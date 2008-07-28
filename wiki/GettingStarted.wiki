@@ -10,11 +10,20 @@ Explanations:
 
 Here are instructions on how to keep abreast of what's going on (as an anonymous non-committer).
 
-= Details =
+= Initial Setup =
 
 {{{
  cd $HOME/src
  svn checkout http://perl-appengine.googlecode.com/svn/trunk/  perl-appengine
  svn checkout http://sys-protect.googlecode.com/svn/trunk/     sys-protect
  svn checkout http://protobuf-perl.googlecode.com/svn/trunk/   protobuf-perl
+}}}
+
+= Initial Setup =
+
+{{{
+ cd $HOME/src
+ cd perl-appengine; svn update; cd ..
+ cd sys-protect;    svn update; cd ..
+ cd protobuf-perl;  svn update; cd ..
 }}}
