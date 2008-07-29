@@ -1,0 +1,66 @@
+// Copyright 2007 Google Inc. All Rights Reserved.
+// (from images_service_pb.py)
+
+syntax = "proto2";
+package appengine_api;
+
+message ImagesServiceError {
+  enum ErrorCode {
+    UNSPECIFIED_ERROR = 1;
+    BAD_TRANSFORM_DATA = 2;
+    NOT_IMAGE = 3;
+    BAD_IMAGE_DATA = 4;
+    IMAGE_TOO_LARGE = 5;
+  }
+}
+
+message ImagesServiceTransform {
+  enum Type {
+    RESIZE = 1;
+    ROTATE = 2;
+    HORIZONTAL_FLIP = 3;
+    VERTICAL_FLIP = 4;
+    CROP = 5;
+    IM_FEELING_LUCKY = 6;
+  }
+}
+
+message Transform {
+  optional int32 width = 1;
+  optional int32 height = 2;
+  optional int32 rotate = 3 [default = 0];
+  optional bool horizontal_flip = 4 [default = false];
+  optional bool vertical_flip = 5 [default = false];
+  optional float crop_left_x = 6 [default = 0.0];
+  optional float crop_top_y = 7 [default = 0.0];
+  optional float crop_right_x = 8 [default = 1.0];
+  optional float crop_bottom_y = 9 [default = 1.0];
+  optional bool autolevels = 10 [default = false];
+}
+
+message ImageData {
+  required bytes content = 1;
+}
+
+message OutputSettings {
+  enum MIME_TYPE {
+    PNG = 0;
+    JPEG = 1;
+  }
+  optional MIME_TYPE mime_type = 1 [default=PNG];
+}
+
+message ImagesTransformRequest {
+  required ImageData image = 1;
+  repeated Transform transform = 2;
+  required OutputSettings output = 3;
+}
+
+message ImagesTransformResponse {
+  required ImageData image = 1;
+}
+
+service ImagesService {
+  rpc Transform(ImagesTransformRequest)
+    returns (ImagesTransformResponse) {};
+}
