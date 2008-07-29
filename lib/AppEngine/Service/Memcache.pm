@@ -5,10 +5,10 @@ use strict;
 use warnings;
 use 5.6.1;
 use Protobuf;
-
-package AppEngine::Service::MemcacheProto;
+package AppEngine::Service::Memcache;
 
 package AppEngine::Service;
+
 
 use constant TRUE => 1;
 use constant FALSE => 0;

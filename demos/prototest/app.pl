@@ -10,7 +10,7 @@
 use strict;
 use Data::Dumper;
 use AppEngine::APIProxy;
-use AppEngine::Service::MemcacheProto;
+use AppEngine::Service::Memcache;
 
 print "<h1>Hello!</h1>";
 print "You requested path: $ENV{PATH_INFO}\n";
