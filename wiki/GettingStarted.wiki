@@ -21,14 +21,12 @@ This is generically useful (at least to all projects using protocol buffers such
 as those within Google's compute farm) and therefore has been made a separate
 project.
 
-{{{
-   http://code.google.com/p/protobuf/
-   http://code.google.com/apis/protocolbuffers/docs/tutorials.html
-   http://code.google.com/apis/protocolbuffers/docs/reference/other.html
-   http://code.google.com/p/protobuf/wiki/OtherLanguages
-   http://groups.google.com/group/protobuf-perl
-   http://code.google.com/p/protobuf-perl/
-}}}
+  * http://code.google.com/p/protobuf/
+  * http://code.google.com/apis/protocolbuffers/docs/tutorials.html
+  * http://code.google.com/apis/protocolbuffers/docs/reference/other.html
+  * http://code.google.com/p/protobuf/wiki/OtherLanguages
+  * http://groups.google.com/group/protobuf-perl
+  * http://code.google.com/p/protobuf-perl/
 
 Also, the Sys::Protect module is an XS module which eliminates the use of
 certain Perl opcodes. According to Brad, this is not how it will be when code
