@@ -8,7 +8,7 @@ First off, read and submit:
 
   * http://code.google.com/legal/individual-cla-v1.0.html
 
-I'm not a lawyer, but it basically says you're letting Google use your open source code.  You still own the copyright to it, but Google can use it.  For an open source license (as this is) that's pretty much what you'd already expect.
+I'm not a lawyer, but it basically says you're letting Google use your open source code.  You still own the copyright to it, but Google can use it.  For an open source license (as this is) that's pretty much what you'd already expect.  In any case, you should read the license text yourself and only submit it if you're cool with it.
 
 Next, read Brad's general committing rules:
 
