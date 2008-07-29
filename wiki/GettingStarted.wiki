@@ -3,7 +3,8 @@
 = Introduction =
 
 The code for Perl App Engine is completely in its formative stages (pre-alpha)
-and changing quickly.  This was written on 2008-07-28.
+and changing quickly.  We are trying to keep documentation up to date. Please
+let us know if you find an error or discrepancy.
 
 = Background =
 
