@@ -4,6 +4,8 @@
 syntax = "proto2";
 package appengine_api;
 
+option perl_package = "AppEngine::Service";
+
 message ImagesServiceError {
   enum ErrorCode {
     UNSPECIFIED_ERROR = 1;

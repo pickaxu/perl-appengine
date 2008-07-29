@@ -10,9 +10,6 @@
 syntax = "proto2"; 
 package appengine_api; 
 
-// Generates AppEngine/Service/MemcacheProto.pm with
-// AppEngine::Service::MemcacheGetRequest, etc all inside.  If
-// unspecified, defaults to mapping file_name.proto to FileNameProto.pm
 option perl_package = "AppEngine::Service";
 
 message MemcacheServiceError { 
