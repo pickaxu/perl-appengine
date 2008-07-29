@@ -129,6 +129,8 @@ Then I went to lynx to access the test page.
    lynx localhost:9000
 }}}
 
+= Blowing Up =
+
 This caused my server to blow up.
 
 {{{
