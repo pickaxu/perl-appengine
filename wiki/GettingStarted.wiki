@@ -1,4 +1,4 @@
-#summary Getting started
+#summary How to get started with installing and understanding the software
 
 = Introduction =
 
@@ -7,7 +7,7 @@ and changing quickly.  This was written on 2008-07-28.
 
 = Background =
 
-Brad and a group of people with him (many/most are Google employees?)
+Brad and a group of people with him
 are implementing the low level plumbing that will allow a Perl program to access
 the available services within the Google compute farm.
 
@@ -70,9 +70,6 @@ perl-appengine dev kit includes relative paths to the appropriate directories.
 {{{
    cd $HOME/src/sys-protect
    perl Makefile.PL
-   make
-   cd $HOME/src/protobuf-perl/protobuf
-   ./configure
    make
    cd $HOME/src/protobuf-perl/perl
    perl Makefile.PL
