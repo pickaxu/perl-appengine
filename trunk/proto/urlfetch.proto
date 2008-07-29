@@ -1,0 +1,46 @@
+// Copyright 2007, 2008 Google Inc.
+// (from urlfetch_service_pb.py)
+
+syntax = "proto2";
+package appengine_api;
+
+message URLFetchServiceError {
+  enum ErrorCode {
+    OK = 0;
+    INVALID_URL = 1;
+    FETCH_ERROR = 2;
+    UNSPECIFIED_ERROR = 3;
+    RESPONSE_TOO_LARGE = 4;
+  }
+}
+
+message URLFetchRequest {
+  enum RequestMethod {
+    GET = 1;
+    POST = 2;
+    HEAD = 3;
+    PUT = 4;
+    DELETE = 5;
+  };
+  required RequestMethod Method = 1;
+  required bytes Url = 2;
+  repeated group Header = 3 {
+    required bytes Key = 4;
+    required bytes Value = 5;
+  };
+  optional bytes Payload = 6;
+}
+
+message URLFetchResponse {
+  optional bytes Content = 1;
+  required int32 StatusCode = 2;
+  repeated group Header = 3 {
+    required bytes Key = 4;
+    required bytes Value = 5;
+  };
+  optional bool ContentWasTruncated = 6 [default=false];
+}
+
+service URLFetchService {
+  rpc Fetch(URLFetchRequest) returns (URLFetchResponse) {};
+}
