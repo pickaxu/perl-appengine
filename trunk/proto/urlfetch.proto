@@ -4,7 +4,8 @@
 syntax = "proto2";
 package appengine_api;
 
-option perl_package = "AppEngine::Service";
+option perl_message_package = "AppEngine::Service";
+option perl_file_package = "AppEngine::Service::URLFetch";
 
 message URLFetchServiceError {
   enum ErrorCode {
