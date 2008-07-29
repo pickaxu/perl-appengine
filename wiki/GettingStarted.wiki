@@ -2,28 +2,225 @@
 
 = Introduction =
 
-The code for Perl App Engine is completely in its formative stages (pre-alpha).
+The code for Perl App Engine is completely in its formative stages (pre-alpha)
+and changing quickly.  This was written on 2008-07-28.
 
-Explanations:
- * PerlAppEngineDesign
- * PerlAppEngineProgress200807
+= Background =
 
-Here are instructions on how to keep abreast of what's going on (as an anonymous non-committer).
+Brad and a group of people with him (many/most are Google employees?)
+are implementing the low level plumbing that will allow a Perl program to access
+the available services within the Google compute farm.
 
-= Initial Setup =
+This is done by making calls to an API proxy and passing parameters
+which have been serialized using an approach called "protocol buffers."
+The "protobuf" tool uses a serialization specification (in a *.proto file)
+(i.e. like an Interface Definition Language or IDL) and produces
+code for Google's main three languages: C++, Java, and Python.
+Brad has done work on adding Perl support to the protocol buffers tool set.
+This is generically useful (at least to all projects using protocol buffers such
+as those within Google's compute farm) and therefore has been made a separate
+project.
 
 {{{
- cd $HOME/src
- svn checkout http://perl-appengine.googlecode.com/svn/trunk/  perl-appengine
- svn checkout http://sys-protect.googlecode.com/svn/trunk/     sys-protect
- svn checkout http://protobuf-perl.googlecode.com/svn/trunk/   protobuf-perl
+   http://code.google.com/p/protobuf/
+   http://code.google.com/apis/protocolbuffers/docs/tutorials.html
+   http://code.google.com/apis/protocolbuffers/docs/reference/other.html
+   http://code.google.com/p/protobuf/wiki/OtherLanguages
+   http://groups.google.com/group/protobuf-perl
+   http://code.google.com/p/protobuf-perl/
 }}}
 
-= Later Synchronization =
+Also, the Sys::Protect module is an XS module which eliminates the use of
+certain Perl opcodes. According to Brad, this is not how it will be when code
+runs at Google, but it will help ensure that code that runs in the development
+environment does not contain illegal actions which will not be allowed in the
+production environment.
+
+= Getting Started =
+
+Here's how to get started.
+I had to install the following modules on my system.
+(You may have to install more.)
 
 {{{
- cd $HOME/src
- cd perl-appengine; svn update; cd ..
- cd sys-protect;    svn update; cd ..
- cd protobuf-perl;  svn update; cd ..
+   su -   # become root
+   perl -MCPAN -e shell
+   cpan> install IPC::Run
+   cpan> install HTTP::Server::Simple::CGI
+   cpan> install Net::Server::Fork
+   cpan> install namespace::clean
+   cpan> install Moose
+   cpan> install Moose::Policy
+   cpan> exit
+   exit   # become a normal user again
 }}}
+
+Then you check out the existing projects.
+(I am assuming you will do this in a HOME directory on a Linux system.)
+
+{{{
+   cd $HOME/src
+   svn checkout http://sys-protect.googlecode.com/svn/trunk/     sys-protect
+   svn checkout http://protobuf-perl.googlecode.com/svn/trunk/   protobuf-perl
+   svn checkout http://perl-appengine.googlecode.com/svn/trunk/  perl-appengine
+}}}
+
+Then do the initial compilation. (Do this once.)
+Note: These do not appear to need to be installed via "make install" as the
+perl-appengine dev kit includes relative paths to the appropriate directories.
+
+{{{
+   cd $HOME/src/sys-protect
+   perl Makefile.PL
+   make
+   cd $HOME/src/protobuf-perl/protobuf
+   ./configure
+   make
+   cd $HOME/src/protobuf-perl/perl
+   perl Makefile.PL
+   make
+   cd $HOME/src/perl-appengine
+   perl Makefile.PL
+   make
+}}}
+
+Then do the following to update and compile. (Do this regularly to
+keep up to date.)
+
+{{{
+   cd $HOME/src/sys-protect
+   svn update
+   perl Makefile.PL
+   make
+
+   cd $HOME/src/protobuf-perl
+   svn update
+   cd $HOME/src/protobuf-perl/perl
+   perl Makefile.PL
+   make
+
+   cd $HOME/src/perl-appengine
+   svn update
+   perl Makefile.PL
+   make
+}}}
+
+The code currently checked in to the perl-appengine subversion repository is
+targeted to be the development kit. To demonstrate what it can currently do,
+type the following.
+
+{{{
+   cd $HOME/src/perl-appengine
+   dev_appserver.pl demos/prototest
+}}}
+
+The server output was as follows.
+
+{{{
+ 2008/07/28-22:52:38 AppEngine::Server::NetServer0 (type Net::Server::Fork) starting! pid(14736)
+ Binding to TCP port 9000 on host *
+ Group Not Defined.  Defaulting to EGID '205 3000 217 10 205'
+ User Not Defined.  Defaulting to EUID '102'
+}}}
+
+Then I went to lynx to access the test page.
+
+{{{
+   lynx localhost:9000
+}}}
+
+This caused my server to blow up.
+
+{{{
+app's stderr: [Not allowed to load Class::C3::XS at
+../sys-protect/blib/lib/Sys/Protect.pm line 61
+        Sys::Protect::__ANON__('Class::C3::XS', 0.08) called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 48
+        require Class/C3/XS.pm called at (eval 3) line 3
+        eval 'require Class::C3::XS
+;' called at /usr/lib/perl5/site_perl/5.8.8/Class/C3.pm line 18
+        Class::C3::BEGIN() called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        eval {...} called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        require Class/C3.pm called at
+/usr/lib/perl5/site_perl/5.8.8/MRO/Compat.pm line 27
+        MRO::Compat::BEGIN() called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        eval {...} called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        require MRO/Compat.pm called at
+cpanlib/Class-MOP/lib/Class/MOP.pm line 7
+        Class::MOP::BEGIN() called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        eval {...} called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        require Class/MOP.pm called at
+/usr/lib/perl5/site_perl/5.8.8/Moose.pm line 15
+        Moose::BEGIN() called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        eval {...} called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        require Moose.pm called at
+/usr/lib/perl5/site_perl/5.8.8/Moose/Policy.pm line 2
+        Moose::Policy::BEGIN() called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        eval {...} called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        require Moose/Policy.pm called at
+../protobuf-perl/perl/lib/Protobuf.pm line 8
+        Protobuf::EnumDescriptor::BEGIN() called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        eval {...} called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        require Protobuf.pm called at lib/AppEngine/Service/Memcache.pm line 7
+        main::BEGIN() called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        eval {...} called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        require AppEngine/Service/Memcache.pm called at
+demos/prototest/app.pl line 13
+        main::BEGIN() called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+        eval {...} called at
+/usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm line 0
+Compilation failed in require at (eval 3) line 3.
+BEGIN failed--compilation aborted at
+/usr/lib/perl5/site_perl/5.8.8/Class/C3.pm line 29.
+Compilation failed in require at
+/usr/lib/perl5/site_perl/5.8.8/MRO/Compat.pm line 27.
+BEGIN failed--compilation aborted at
+/usr/lib/perl5/site_perl/5.8.8/MRO/Compat.pm line 44.
+Compilation failed in require at cpanlib/Class-MOP/lib/Class/MOP.pm line 7.
+BEGIN failed--compilation aborted at cpanlib/Class-MOP/lib/Class/MOP.pm line 7.
+Compilation failed in require at
+/usr/lib/perl5/site_perl/5.8.8/Moose.pm line 15.
+BEGIN failed--compilation aborted at
+/usr/lib/perl5/site_perl/5.8.8/Moose.pm line 15.
+Compilation failed in require at
+/usr/lib/perl5/site_perl/5.8.8/Moose/Policy.pm line 2.
+BEGIN failed--compilation aborted at
+/usr/lib/perl5/site_perl/5.8.8/Moose/Policy.pm line 2.
+Compilation failed in require at ../protobuf-perl/perl/lib/Protobuf.pm line 8.
+BEGIN failed--compilation aborted at
+../protobuf-perl/perl/lib/Protobuf.pm line 8.
+Compilation failed in require at lib/AppEngine/Service/Memcache.pm line 7.
+BEGIN failed--compilation aborted at lib/AppEngine/Service/Memcache.pm line 7.
+Compilation failed in require at demos/prototest/app.pl line 13.
+BEGIN failed--compilation aborted at demos/prototest/app.pl line 13.
+}}}
+
+So that's all I have time for tonight.
+
+I think what is happening is that the server is using the original
+version of Moose
+installed from CPAN and dying in Sys::Protect because it uses an
+illegal op code.
+I need to convince it to use the patched version of Class::MOP in
+$HOME/src/perl-appengine/cpanlib/Class-MOP.
+
+I think the long and the short of all this is that Brad and Company
+are getting some
+good stuff done. I'll try to watch what they do, but I'll probably
+wait until the dust
+settles before I get involved at a bit of a higher level. 
