@@ -13,7 +13,7 @@ the available services within the Google compute farm.
 
 This is done by making calls to an API proxy and passing parameters
 which have been serialized using an approach called "protocol buffers."
-The "protobuf" tool uses a serialization specification (in a *.proto file)
+The "protobuf" tool uses a serialization specification (in a .proto file)
 (i.e. like an Interface Definition Language or IDL) and produces
 code for Google's main three languages: C++, Java, and Python.
 Brad has done work on adding Perl support to the protocol buffers tool set.
