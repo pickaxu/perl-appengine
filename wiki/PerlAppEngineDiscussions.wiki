@@ -20,3 +20,4 @@ Please also notify the people involved in that discussion of this project.
 
   * http://use.perl.org/article.pl?sid=08/04/10/0130201
   * http://brad.livejournal.com/2388824.html
+  * http://radar.oreilly.com/2008/07/perl-on-app-engine.html
