@@ -33,6 +33,8 @@ use HTTP::Request::Common;
 use Data::Dumper;
 use Getopt::Long;
 
+our $VERSION = "0.01";
+
 sub new {
     my $class = shift;
     my ($port, $app_dir) = @_;
