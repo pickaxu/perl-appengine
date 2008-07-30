@@ -8,6 +8,7 @@ Please also notify the people involved in that discussion of this project.
 
 == Google AppEngine Issues List ==
 
+  * http://code.google.com/p/googleappengine/issues/list
   * http://code.google.com/p/googleappengine/issues/detail?id=34
   * http://code.google.com/p/googleappengine/issues/detail?id=34#c436
 
