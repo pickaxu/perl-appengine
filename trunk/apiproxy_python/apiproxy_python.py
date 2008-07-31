@@ -8,6 +8,13 @@ from google.appengine.ext import webapp
 from google.appengine.api import apiproxy_stub_map
 
 from google.appengine.api.memcache import memcache_service_pb
+from google.appengine.api.images import images_service_pb
+from google.appengine.api import mail_service_pb
+from google.appengine.api import urlfetch_service_pb
+from google.appengine.api import user_service_pb
+from google.appengine.api.datastore import datastore_pb
+from google.appengine.api.datastore import entity_pb
+from google.appengine.api import api_base_pb
 
 MemcacheSetResponse = memcache_service_pb.MemcacheSetResponse
 MemcacheSetRequest = memcache_service_pb.MemcacheSetRequest
@@ -64,8 +71,33 @@ class DoRequest(webapp.RequestHandler):
       self.response.out.write('<html><body>bogus service</body></html>')
       return
 
+    # Some aliases:
+    datastore = datastore_pb
+    base = api_base_pb
+    entity = entity_pb
+
+    # This is lame that I have to manually maintain this table.  Is
+    # there a better way?  At least we don't have to implement all
+    # these ourselves. :)
     proto_class = {
-      "datastore_v3": {},
+      "datastore_v3": {
+        "Get": (datastore.GetRequest, datastore.GetResponse),
+        "Put": (datastore.PutRequest, datastore.PutResponse),
+        "Delete": (datastore.DeleteRequest, base.VoidProto),
+        "RunQuery": (datastore.Query, datastore.QueryResult),
+        "Next": (datastore.NextRequest, datastore.QueryResult),
+        "Count": (datastore.Query, base.Integer64Proto),
+        "Explain": (datastore.Query, datastore.QueryExplanation),
+        "DeleteCursor": (datastore.Cursor, base.VoidProto),
+        "BeginTransaction": (base.VoidProto, datastore.Transaction),
+        "Commit": (datastore.Transaction, base.VoidProto),
+        "Rollback": (datastore.Transaction, base.VoidProto),
+        "GetSchema": (base.StringProto, base.VoidProto),
+        "CreateIndex": (entity.CompositeIndex, base.Integer64Proto),
+        "UpdateIndex": (entity.CompositeIndex, base.VoidProto),
+        "GetIndices": (base.StringProto, datastore.CompositeIndices),
+        "DeleteIndex": (entity.CompositeIndex, base.VoidProto),
+        },
       "user": {},
       "urlfetch": {},
       "mail": {},
