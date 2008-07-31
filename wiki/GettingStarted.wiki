@@ -11,6 +11,8 @@ let us know if you find an error or discrepancy.
 Currently, the low level plumbing that will allow a Perl program to access
 the available services within the Google compute farm are being implemented.
 
+== protobuf-perl ==
+
 This is done by making calls to an API proxy and passing parameters
 which have been serialized using an approach called "protocol buffers."
 The "protobuf" tool uses a serialization specification (in a .proto file)
@@ -28,6 +30,8 @@ project.
   * http://groups.google.com/group/protobuf-perl
   * http://code.google.com/p/protobuf-perl/
 
+== sys-protect ==
+
 Also, the Sys::Protect module is an XS module which eliminates the use of
 certain Perl opcodes. This is not how it will be when code
 runs at Google, but it will help ensure that code that runs in the development
@@ -36,6 +40,8 @@ production environment.
 
   * http://search.cpan.org/~bradfitz/Sys-Protect/
   * http://search.cpan.org/~bradfitz/Sys-Protect/lib/Sys/Protect.pm
+
+== Moose ==
 
 The project also uses Moose, "a postmodern object system for Perl 5 that
 takes the tedium out of writing object-oriented Perl. It borrows all the
