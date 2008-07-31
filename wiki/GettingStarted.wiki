@@ -54,7 +54,7 @@ best features from Perl 6, CLOS (LISP), Smalltalk, Java, BETA, OCaml, Ruby and m
   * http://search.cpan.org/~stevan/Moose-Policy/
   * http://search.cpan.org/~stevan/Moose-Policy/lib/Moose/Policy.pm
 
-= Getting Started =
+= Installation and Updating =
 
 Here's how to get started.
 I had to install the following modules and their dependencies on my system.
