@@ -68,6 +68,9 @@ of it. You may have to adjust your paths appropriately.
    exit   # become a normal user again
 }}}
 
+Note: draegtun has suggested that setting the CLASS_MOP_NO_XS environment variable
+would make the uninstall of Class::C3::XS unnecessary.
+
 Then you check out the existing projects.
 (I am assuming you will do this in a HOME directory on a Linux system.)
 
