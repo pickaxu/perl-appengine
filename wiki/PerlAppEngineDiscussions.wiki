@@ -1,4 +1,4 @@
-#Documents all known discussions of Perl on Google AppEngine on the web
+#summary Documents all known discussions of Perl on Google AppEngine on the web
 
 = Known Discussions =
 
