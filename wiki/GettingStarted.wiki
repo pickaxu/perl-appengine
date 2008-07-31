@@ -35,6 +35,19 @@ runs at Google, but it will help ensure that code that runs in the development
 environment does not contain illegal actions which will not be allowed in the
 production environment.
 
+  * http://search.cpan.org/~bradfitz/Sys-Protect/
+  * http://search.cpan.org/~bradfitz/Sys-Protect/lib/Sys/Protect.pm
+
+The project also uses Moose, "a postmodern object system for Perl 5 that
+takes the tedium out of writing object-oriented Perl. It borrows all the
+best features from Perl 6, CLOS (LISP), Smalltalk, Java, BETA, OCaml, Ruby and more, while still keeping true to it's Perl 5 roots." It also uses Moose::Policy.
+
+  * http://www.iinteractive.com/moose/
+  * http://search.cpan.org/~stevan/Moose/
+  * http://search.cpan.org/~stevan/Moose/lib/Moose.pm
+  * http://search.cpan.org/~stevan/Moose-Policy/
+  * http://search.cpan.org/~stevan/Moose-Policy/lib/Moose/Policy.pm
+
 = Getting Started =
 
 Here's how to get started.
@@ -112,6 +125,8 @@ keep up to date.)
    cd $HOME/src/perl-appengine
    svn update
 }}}
+
+= Running the Development Server =
 
 The code currently checked in to the perl-appengine subversion repository is
 targeted to be the development kit. To demonstrate what it can currently do,
