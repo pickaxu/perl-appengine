@@ -8,9 +8,8 @@ let us know if you find an error or discrepancy.
 
 = Background =
 
-Brad and a group of people with him
-are implementing the low level plumbing that will allow a Perl program to access
-the available services within the Google compute farm.
+Currently, the low level plumbing that will allow a Perl program to access
+the available services within the Google compute farm are being implemented.
 
 This is done by making calls to an API proxy and passing parameters
 which have been serialized using an approach called "protocol buffers."
