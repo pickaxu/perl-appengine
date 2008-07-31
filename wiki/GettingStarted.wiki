@@ -38,6 +38,7 @@ runs at Google, but it will help ensure that code that runs in the development
 environment does not contain illegal actions which will not be allowed in the
 production environment.
 
+  * http://code.google.com/p/sys-protect/
   * http://search.cpan.org/~bradfitz/Sys-Protect/
   * http://search.cpan.org/~bradfitz/Sys-Protect/lib/Sys/Protect.pm
 
