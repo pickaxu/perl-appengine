@@ -30,7 +30,7 @@ project.
   * http://code.google.com/p/protobuf-perl/
 
 Also, the Sys::Protect module is an XS module which eliminates the use of
-certain Perl opcodes. According to Brad, this is not how it will be when code
+certain Perl opcodes. This is not how it will be when code
 runs at Google, but it will help ensure that code that runs in the development
 environment does not contain illegal actions which will not be allowed in the
 production environment.
