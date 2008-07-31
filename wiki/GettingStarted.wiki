@@ -82,7 +82,7 @@ Then you check out the existing projects.
 }}}
 
 Then do the initial compilation. (Do this once.)
-Note: These do not appear to need to be installed via "make install" as the
+Note: These do not need to be installed via "make install" as the
 perl-appengine dev kit includes relative paths to the appropriate directories.
 
 {{{
