@@ -44,12 +44,16 @@ proto_class = {
     "GetIndices": (base.StringProto, datastore.CompositeIndices),
     "DeleteIndex": (entity.CompositeIndex, base.VoidProto),
     },
-  "user": {},
+  "user": {
+    # TODO(bradfitz): proto files not yet released
+    },
   "urlfetch": {
     "Fetch": (urlfetch_service_pb.URLFetchRequest,
               urlfetch_service_pb.URLFetchResponse),
     },
-  "mail": {},
+  "mail": {
+    # TODO(bradfitz): proto files not yet released
+    },
   "memcache": {
     "Get": (memcache.MemcacheGetRequest, memcache.MemcacheGetResponse),
     "Set": (memcache.MemcacheSetRequest, memcache.MemcacheSetResponse),
@@ -58,7 +62,10 @@ proto_class = {
     "FlushAll": (memcache.MemcacheFlushRequest, memcache.MemcacheFlushResponse),
     "Stats": (memcache.MemcacheStatsRequest, memcache.MemcacheStatsResponse),
     },
-  "images": {},
+  "images": {
+    "Transform": (images_service_pb.ImagesTransformRequest,
+                  images_service_pb.ImagesTransformResponse),
+    },
   }
 
 
