@@ -38,8 +38,13 @@ production environment.
 = Getting Started =
 
 Here's how to get started.
-I had to install the following modules on my system.
+I had to install the following modules and their dependencies on my system.
 (You may have to install more.)
+
+IMPORTANT: When you install Moose (below) and follow the dependencies, you will
+be prompted to install Class::C3::XS. This is the one default you should
+*not* choose (i.e. choose "No").  If you miss this, you will need to
+uninstall it later.
 
 {{{
    su -   # become root
@@ -54,8 +59,8 @@ I had to install the following modules on my system.
    exit   # become a normal user again
 }}}
 
-However, when you do this, you will have a module called Class::C3::XS
-installed that needs to be uninstalled. I did the following to get rid
+If you did install the module called Class::C3::XS,
+it needs to be uninstalled. I did the following to get rid
 of it. You may have to adjust your paths appropriately.
 
 {{{
@@ -69,7 +74,8 @@ of it. You may have to adjust your paths appropriately.
 }}}
 
 Note: draegtun has suggested that setting the CLASS_MOP_NO_XS environment variable
-would make the uninstall of Class::C3::XS unnecessary.
+would make the uninstall of Class::C3::XS unnecessary. I (spadkins) tried this
+and was unable to make that work.
 
 Then you check out the existing projects.
 (I am assuming you will do this in a HOME directory on a Linux system.)
