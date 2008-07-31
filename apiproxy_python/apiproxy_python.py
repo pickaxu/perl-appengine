@@ -45,7 +45,10 @@ proto_class = {
     "DeleteIndex": (entity.CompositeIndex, base.VoidProto),
     },
   "user": {},
-  "urlfetch": {},
+  "urlfetch": {
+    "Fetch": (urlfetch_service_pb.URLFetchRequest,
+              urlfetch_service_pb.URLFetchResponse),
+    },
   "mail": {},
   "memcache": {
     "Get": (memcache.MemcacheGetRequest, memcache.MemcacheGetResponse),
