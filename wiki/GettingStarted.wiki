@@ -86,12 +86,6 @@ perl-appengine dev kit includes relative paths to the appropriate directories.
    cd $HOME/src/sys-protect
    perl Makefile.PL
    make
-   cd $HOME/src/protobuf-perl/perl
-   perl Makefile.PL
-   make
-   cd $HOME/src/perl-appengine
-   perl Makefile.PL
-   make
 }}}
 
 Then do the following to update and compile. (Do this regularly to
@@ -105,14 +99,9 @@ keep up to date.)
 
    cd $HOME/src/protobuf-perl
    svn update
-   cd $HOME/src/protobuf-perl/perl
-   perl Makefile.PL
-   make
 
    cd $HOME/src/perl-appengine
    svn update
-   perl Makefile.PL
-   make
 }}}
 
 The code currently checked in to the perl-appengine subversion repository is
