@@ -123,9 +123,8 @@ class DoRequest(webapp.RequestHandler):
       request.ParseFromString(request_bytes)
       stub.MakeSyncCall(service, method, request, response)
     except Exception, e:
-      self.response.out.write('Error doing sync-call: ' + str(type(e))
-                              + " on request: " + request_bytes
-                              + " (of length " + str(len(request_bytes)) + ")")
+      self.response.out.write('Error doing sync-call: ' + "\n" + str(dir(e))
+                              + "\n" + str([e.args, e.message]))
       return
     
     self.response.out.write('Response: [' + response.Encode() + ']')
