@@ -256,20 +256,20 @@ class DatastoreFileStub(object):
     supported calls are 'Get', 'Put', 'RunQuery', 'Next', and 'Count'.
     """
 
-    assert service == 'datastore_v3'
+    assert service == 'datastore_v3', "wrong service"
 
     explanation = []
-    assert request.IsInitialized(explanation), explanation
+    assert request.IsInitialized(explanation), "request not initialized"
 
     (getattr(self, "_Dynamic_" + call))(request, response)
 
-    assert response.IsInitialized(explanation), explanation
+    assert response.IsInitialized(explanation), "response not initialized"
 
   def ResolveAppId(self, app):
     """ If the given app name is the placeholder for the local app, returns
     our app_id. Otherwise returns the app name unchanged.
     """
-    assert app != ''
+    assert app != '', "app is non-empty"
     if app == datastore._LOCAL_APP_ID:
       return self.__app_id
     else:
@@ -288,8 +288,8 @@ class DatastoreFileStub(object):
       clone.CopyFrom(entity)
       clones.append(clone)
 
-      assert clone.has_key()
-      assert clone.key().path().element_size() > 0
+      assert clone.has_key(), "put has key"
+      assert clone.key().path().element_size() > 0, "key path has > 0 elements"
 
       app = self.ResolveAppId(clone.key().app())
       clone.mutable_key().set_app(app)
@@ -301,14 +301,14 @@ class DatastoreFileStub(object):
         self.__next_id += 1
         self.__id_lock.release()
 
-        assert clone.entity_group().element_size() == 0
+        assert clone.entity_group().element_size() == 0, "entity group element size == 0"
         group = clone.mutable_entity_group()
         root = clone.key().path().element(0)
         group.add_element().CopyFrom(root)
 
       else:
         assert (clone.has_entity_group() and
-                clone.entity_group().element_size() > 0)
+                clone.entity_group().element_size() > 0), "last_path.id() == 0 and not last_path.has_name()"
 
     self.__entities_lock.acquire()
 
