@@ -15,6 +15,7 @@ from google.appengine.api import user_service_pb
 from google.appengine.api.datastore import datastore_pb
 from google.appengine.api.datastore import entity_pb
 from google.appengine.api import api_base_pb
+from google.appengine.runtime import apiproxy_errors
 
 # Some aliases:
 datastore = datastore_pb
@@ -122,9 +123,14 @@ class DoRequest(webapp.RequestHandler):
     try:
       request.ParseFromString(request_bytes)
       stub.MakeSyncCall(service, method, request, response)
+    except apiproxy_errors.ApplicationError, err:
+      self.response.out.write('apiproxy error: ' + [err.application_error,
+                                                    err.error_detail])
     except Exception, e:
-      self.response.out.write('Error doing sync-call: ' + "\n" + str(dir(e))
-                              + "\n" + str([e.args, e.message]))
+      self.response.out.write('Error doing sync-call: ' + "\n"
+                              + "type=[" + cgi.escape(str(type(e))) + "]\n"
+                              #+ str(dir(e)) + "\n"
+                              + str([e.args, e.message]))
       return
     
     self.response.out.write('Response: [' + response.Encode() + ']')

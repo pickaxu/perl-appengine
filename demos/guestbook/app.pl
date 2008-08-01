@@ -24,8 +24,14 @@ $res = AppEngine::Service::Datastore::PutResponse->new;
 
 my $entity = $req->add_entity;
 my $key_ref = $entity->key;
-$key_ref->set_app(""); # required.  what is it?
+$key_ref->set_app("my_app"); # required.  what is it?
+
 my $path = $key_ref->path;  # vivify it, but do nothing.
+my $element = $path->add_element;
+$element->set_type("type");
+$element->set_name("name");
+$element = $path->add_element;  # last element needs to have no id or name?
+$element->set_type("type");
 
 my $entity_group_path = $entity->entity_group; # vivify it, do nothing
 
@@ -34,13 +40,16 @@ print "<pre>" . Dumper($req) . "</pre>";
 
 do_req("datastore_v3", "Put", $req, $res) or die;
 
+print "<h2>Response to put:</h2>";
+print "<pre>" . Dumper($res) . "</pre>";
+
 sub do_req {
     my ($service, $method, $proto, $res) = @_;
     my $res_bytes = eval {
         AppEngine::APIProxy::sync_call($service, $method, $proto);
     };
     if ($@) {
-        print "$service $method error was: <pre>", Dumper([$res_bytes, $@]), "</pre>";
+        print "<p><b>do_req error for svc=$service meth=$method</b>: error was: <pre>", Dumper($@), "</pre></p>";
         return undef;
     }
     my $escaped = $res_bytes;
