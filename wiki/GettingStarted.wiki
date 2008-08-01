@@ -54,7 +54,7 @@ best features from Perl 6, CLOS (LISP), Smalltalk, Java, BETA, OCaml, Ruby and m
   * http://search.cpan.org/~stevan/Moose-Policy/
   * http://search.cpan.org/~stevan/Moose-Policy/lib/Moose/Policy.pm
 
-= Installation and Updating =
+= Installing Required Perl Modules from CPAN =
 
 Here's how to get started.
 I had to install the following modules and their dependencies on my system.
@@ -95,6 +95,22 @@ of it. You may have to adjust your paths appropriately.
 Note: draegtun has suggested that setting the CLASS_MOP_NO_XS environment variable
 would make the uninstall of Class::C3::XS unnecessary. I (spadkins) tried this
 and was unable to make that work.
+
+= Ensure Python is Installed and Up-to-Date =
+
+The Perl App Engine development server builds on the Google App Engine development
+kit written in Python. It proxies all Google-specific API's to the Python development
+server.  Therefore, Python must be installed on your system and it must be at least
+Python 2.5.  If you see this message, you need to upgrade Python.
+
+{{{
+   cd $HOME/src/perl-appengine/
+   ./python_sdk_partial/dev_appserver.py apiproxy_python
+   Error: Python 2.3 is not supported. Please use version 2.5 or greater.
+   python -v
+}}}
+
+= Installing perl-appengine Software =
 
 Then you check out the existing projects.
 (I am assuming you will do this in a HOME directory on a Linux system.)
