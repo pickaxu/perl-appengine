@@ -14,6 +14,7 @@ If you don't have Perl for Windows, get it here and install it. (It is free of c
   ** Click on "Download", skip the Contact Details and push "Continue"
   ** I would choose "Download ActivePerl 5.10.0.1003 for Windows (x86): MSI - 15.4MB" for my Windows XP laptop
   ** However, I have Perl 5.8.8 installed and I didn't actually bother to upgrade.
+  ** Download the Windows installer file to some location, then run it to install.
 
 See also
 
@@ -33,6 +34,16 @@ If you don't have a Subversion client, get TortoiseSVN here.
 
   * http://www.tortoisesvn.net/
 
+Download the Windows installer file to some location, then run it to install.
+The rest of this document will assume you have TortoiseSVN.
+
+== Python 2.5 ==
+
+If you don't have Python 2.5 installed, get it here.
+
+  * http://www.python.org/
+
+Download the Windows installer file to some location, then run it to install.
 The rest of this document will assume you have TortoiseSVN.
 
 ----------------------------------------------
