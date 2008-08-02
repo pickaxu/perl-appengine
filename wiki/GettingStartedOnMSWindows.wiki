@@ -41,33 +41,35 @@ First, go the Windows Command shell.
 
 {{{
    perl -MCPAN -e shell
-   cpan> install IPC::Run
-   cpan> force install IPC::Run
    cpan> install Net::Server
    cpan> install namespace::clean
-   cpan> install HTTP::Server::Simple::CGI
    cpan> install Moose
    cpan> install Moose::Policy
    cpan> exit
+
+   perl -MCPAN -e shell
+   cpan> install IPC::Run
+   cpan> force install IPC::Run
+   cpan> install HTTP::Server::Simple
+   cpan> exit
+
+   cd \strawberry\cpan\build
+   dir
+   cd IPC-Run-0.80-nUzol5
+   dmake install
+   cd ..
+   dir
+   cd HTTP-Server-Simple-0.34-OkyRHT
+   dmake install
+   cd ..
 }}}
 
-If you did install the module called Class::C3::XS,
-it needs to be uninstalled. I did the following to get rid
-of it. You may have to adjust your paths appropriately.
-
-{{{
-   su -   # become root
-   rm /usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm
-   rm /usr/lib/perl5/site_perl/5.8.8/i686-linux/auto/Class/C3/XS/XS.bs
-   rm /usr/lib/perl5/site_perl/5.8.8/i686-linux/auto/Class/C3/XS/XS.so
-   rm /usr/share/man/man3/Class::C3::XS.3pm
-   rm /usr/lib/perl5/site_perl/5.8.8/i686-linux/auto/Class/C3/XS/.packlist
-   exit   # become a normal user again
-}}}
-
-Note: draegtun has suggested that setting the CLASS_MOP_NO_XS environment variable
-would make the uninstall of Class::C3::XS unnecessary. I (spadkins) tried this
-and was unable to make that work.
+Notes:
+  * The first set of installs should go cleanly
+  * The test for IPC::Run hung up and then failed on Windows. I used "force" to get it to install. If that doesn't work for you, do the commands under the "build" directory as described.
+  * The test for HTTP::Server::Simple hung up forever on Windows. I had to kill it. I tried using "force" but it did no good. I resorted to using the commands under the "build" directory as described.
+  * The CPAN shell downloads and unpacks the distributions under C:\strawberry\cpan\build. However, the directory names have six random characters at the end to make them unique. Your directory names will not be the same as I show here. Do the "dir" to find out what your directory names are, and do the "dmake install" in the appropriate directory.
+  * I was not given a chance to avoid installing Class::C3::XS, but it appears not to have been installed, so I didn't have to uninstall it.
 
 == Python 2.5 ==
 
