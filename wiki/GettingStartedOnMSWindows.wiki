@@ -6,27 +6,21 @@ First read the GettingStarted page for appropriate background information.
 
 = Installation of Tools =
 
-== Active Perl ==
+== Strawberry Perl ==
 
+I used Strawberry Perl rather than Active Perl because it includes a compiler.
 If you don't have Perl for Windows, get it here and install it. (It is free of charge.)
 
-  * http://www.activestate.com/store/activeperl/
-  ** Click on "Download", skip the Contact Details and push "Continue"
-  ** I would choose "Download ActivePerl 5.10.0.1003 for Windows (x86): MSI - 15.4MB" for my Windows XP laptop
-  ** However, I have Perl 5.8.8 installed and I didn't actually bother to upgrade.
+  * http://strawberryperl.com/
   ** Download the Windows installer file to some location, then run it to install.
 
 See also
 
-  * http://www.activestate.com/Products/activeperl/index.mhtml
-  * http://www.activestate.com/Products/languages.mhtml
-  * http://www.activestate.com/index.mhtml
+  * http://win32.perl.org/wiki/index.php?title=Strawberry_Perl
 
-and the documentation ...
+The rest of this document will assume that you install it in C:\strawberry, the default location.
 
-  * http://aspn.activestate.com/ASPN/docs/ASPNTOC-APERL_5.10/
-
-The rest of this document will assume that you install it in C:\Perl, the default location.
+NOTE: If you already had Active State Perl installed, then C:\Perl\bin (Active State) might be before C:\strawberry\perl\bin in the PATH. If so, go to Control Panel->System->Advanced->Environment Variables->System Variables->Path and remove "C:\Perl\bin".
 
 == Tortoise SVN ==
 
@@ -46,14 +40,11 @@ I had to install the following modules and their dependencies on my system.
 First, go the Windows Command shell.
 
 {{{
-   ppm-shell
-   ppm> install IPC::Run
-   ppm> install Net::Server
-   ppm> install namespace::clean
-   ppm> exit
-}}}
-{{{
    perl -MCPAN -e shell
+   cpan> install IPC::Run
+   cpan> force install IPC::Run
+   cpan> install Net::Server
+   cpan> install namespace::clean
    cpan> install HTTP::Server::Simple::CGI
    cpan> install Moose
    cpan> install Moose::Policy
