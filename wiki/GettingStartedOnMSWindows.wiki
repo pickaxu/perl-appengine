@@ -37,7 +37,7 @@ Here's how to get started.
 I had to install the following modules and their dependencies on my system.
 (You may have to install more.)
 
-First, go the Windows Command shell.
+First, go to the Windows Command shell.
 
 {{{
    perl -MCPAN -e shell
@@ -81,5 +81,118 @@ If you don't have Python 2.5 installed, get it here.
 Download the Windows installer file to some location, then run it to install.
 The rest of this document will assume you have TortoiseSVN.
 
-----------------------------------------------
-... to be written ...
+= Installing perl-appengine Software =
+
+Go to the Windows Command shell.
+
+{{{
+   cd \strawberry\perl
+   mkdir src
+}}}
+
+From Windows Explorer (My Computer), go to C:\strawberry\perl\src.
+
+Right click in the "src" directory and select "SVN Checkout".
+You are using TortoiseSVN to check out source code.
+In the dialog box, enter
+
+{{{
+   URL of repository: http://sys-protect.googlecode.com/svn/trunk/
+   Checkout directory: sys-protect
+   Checkout Depth: Fully recursive
+   HEAD Revision: [checked]
+}}}
+
+Push the [OK] button. Then answer [Yes] the question of whether you would like
+to create the "sys-protect" directory.
+
+Do the same for the other two projects.
+
+Right click in the "src" directory and select "SVN Checkout".
+In the dialog box, enter
+
+{{{
+   URL of repository: http://protobuf-perl.googlecode.com/svn/trunk/
+   Checkout directory: protobuf-perl
+   Checkout Depth: Fully recursive
+   HEAD Revision: [checked]
+}}}
+
+Push the [OK] button. Then answer [Yes] the question of whether you would like
+to create the "protobuf-perl" directory.
+
+Right click in the "src" directory and select "SVN Checkout".
+In the dialog box, enter
+
+{{{
+   URL of repository: http://perl-appengine.googlecode.com/svn/trunk/
+   Checkout directory: perl-appengine
+   Checkout Depth: Fully recursive
+   HEAD Revision: [checked]
+}}}
+
+Push the [OK] button. Then answer [Yes] the question of whether you would like
+to create the "perl-appengine" directory.
+
+== Initial Compilation ==
+
+Then do the initial compilation. (Do this once.)
+
+At the Windows Command shell, do
+
+{{{
+   cd \strawberry\perl\src\sys-protect
+   perl Makefile.PL
+   dmake
+}}}
+
+== Updating the Perl App Engine Software ==
+
+Periodically, do the following to update and compile. (Do this regularly to
+keep up to date as the software evolves.)
+
+In Windows Explorer (My Computer), go into each of the three project directories
+in order. Right click in the directory, choose "TortoiseSVN->Update to revision",
+and click the [OK] button. This will get the latest ("HEAD") software from the
+subversion repository.
+
+Then, if sys-protect has changed, you will need to compile it.
+
+{{{
+   cd \strawberry\perl\src\sys-protect
+   perl Makefile.PL
+   dmake
+}}}
+
+= Running the Development Server =
+
+The code currently checked in to the perl-appengine subversion repository is
+targeted to be the development kit. To demonstrate what it can currently do,
+type the following.
+
+{{{
+   cd \strawberry\perl\src\perl-appengine
+   dev_appserver.pl demos/prototest
+}}}
+
+The server output is as follows.
+
+{{{
+ 2008/07/28-22:52:38 AppEngine::Server::NetServer0 (type Net::Server::Fork) starting! pid(14736)
+ Binding to TCP port 9000 on host *
+ Group Not Defined.  Defaulting to EGID '205 3000 217 10 205'
+ User Not Defined.  Defaulting to EUID '102'
+}}}
+
+Then I went to lynx to access the test page.
+
+{{{
+   lynx localhost:9000
+}}}
+
+To have more useful demo working (such as a guestbook), you need to run the python development server so our api proxy has something to proxy the requests to:
+
+{{{
+    ./python_sdk_partial/dev_appserver.py apiproxy_python &
+    perl dev_appserver.pl demos/guestbook
+}}}
