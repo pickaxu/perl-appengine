@@ -34,6 +34,24 @@ The rest of this document will assume that you install it in C:\Perl, the defaul
 
 Install nmake.exe from Microsoft.
 
+The method of installing software which is most native to Perl is through the CPAN shell. In order for this to work, you need a "make" tool. Microsoft provides "nmake" for this purpose.
+
+I found reference to "nmake" on Microsoft's site here.
+
+  * http://support.microsoft.com/default.aspx?scid=kb;en-us;132084
+
+Then I downloaded the most recent version (a self-extracting archive) here.
+
+  * http://download.microsoft.com/download/vc15/patch/1.52/w95/en-us/nmake15.exe
+
+After saving it on your disk, run the program to extract three files.
+
+  README.TXT
+  NMAKE.EXE
+  NMAKE.ERR
+
+Move these files to C:\Perl\bin. This should put them in the PATH so that they will be found by the CPAN shell.
+
 = Installing Required Perl Modules from CPAN =
 
 Here's how to get started.
@@ -61,4 +79,3 @@ The remaining modules still need to be installed with the CPAN shell.
 
 However, they fail without a compiler. If anyone has a different experience,
 please update this page.
-
