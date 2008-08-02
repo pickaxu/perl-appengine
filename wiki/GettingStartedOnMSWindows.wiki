@@ -66,10 +66,11 @@ First, go the Windows Command shell.
 
 Notes:
   * The first set of installs should go cleanly
+  * When installing Moose, you will be prompted to install lots of dependencies. Go ahead and install them. However, if you are given a choice whether to install the optional module Class::C3::XS, say "no". If it gets installed, you will have to uninstall it.
+  * I was not given a chance to avoid installing Class::C3::XS, but it appears not to have been installed, so I didn't have to uninstall it.
   * The test for IPC::Run hung up and then failed on Windows. I used "force" to get it to install. If that doesn't work for you, do the commands under the "build" directory as described.
   * The test for HTTP::Server::Simple hung up forever on Windows. I had to kill it. I tried using "force" but it did no good. I resorted to using the commands under the "build" directory as described.
   * The CPAN shell downloads and unpacks the distributions under C:\strawberry\cpan\build. However, the directory names have six random characters at the end to make them unique. Your directory names will not be the same as I show here. Do the "dir" to find out what your directory names are, and do the "dmake install" in the appropriate directory.
-  * I was not given a chance to avoid installing Class::C3::XS, but it appears not to have been installed, so I didn't have to uninstall it.
 
 == Python 2.5 ==
 
