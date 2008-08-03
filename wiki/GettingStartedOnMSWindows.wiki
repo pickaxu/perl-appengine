@@ -91,51 +91,60 @@ Go to the Windows Command shell.
    cd \strawberry\perl
    mkdir src
    cd src
-
+   svn checkout http://sys-protect.googlecode.com/svn/trunk/     sys-protect
+   svn checkout http://protobuf-perl.googlecode.com/svn/trunk/   protobuf-perl
+   svn checkout http://perl-appengine.googlecode.com/svn/trunk/  perl-appengine
 }}}
-
-== Initial Compilation ==
 
 Then do the initial compilation. (Do this once.)
-
-At the Windows Command shell, do
+Note: These do not need to be installed via "make install" as the
+perl-appengine dev kit includes relative paths to the appropriate directories.
 
 {{{
-   cd \strawberry\perl\src\sys-protect
+   cd sys-protect
    perl Makefile.PL
    dmake
 }}}
 
-== Updating the Perl App Engine Software ==
-
-Periodically, do the following to update and compile. (Do this regularly to
-keep up to date as the software evolves.)
-
-In Windows Explorer (My Computer), go into each of the three project directories
-in order. Right click in the directory, choose "TortoiseSVN->Update to revision",
-and click the [OK] button. This will get the latest ("HEAD") software from the
-subversion repository.
-
-Then, if sys-protect has changed, you will need to compile it.
+Then do the following to update and compile. (Do this regularly to
+keep up to date.)
 
 {{{
    cd \strawberry\perl\src\sys-protect
+   svn update
    perl Makefile.PL
    dmake
+
+   cd \strawberry\perl\src\protobuf-perl
+   svn update
+
+   cd \strawberry\perl\src\perl-appengine
+   svn update
 }}}
 
 = Running the Development Server =
 
 The code currently checked in to the perl-appengine subversion repository is
-targeted to be the development kit. To demonstrate what it can currently do,
+targeted to be the development kit.
+
+First you have to fire up the Python version of the development server along
+running an API proxy application.  In a separate Windows Command window,
 type the following.
 
 {{{
-   cd \strawberry\perl\src\perl-appengine
-   dev_appserver.pl demos/prototest
+    cd \strawberry\perl\src\perl-appengine
+    python_sdk_partial/dev_appserver.py apiproxy_python
 }}}
 
-The server output is as follows.
+To run one of the demos, choose a demo such as "demos/guestbook".
+Then type the following.
+
+{{{
+   cd \strawberry\perl\src\perl-appengine
+   dev_appserver.pl demos/guestbook
+}}}
+
+The server output is something like the following.
 
 {{{
  2008/07/28-22:52:38 AppEngine::Server::NetServer0 (type Net::Server::Fork) starting! pid(14736)
@@ -144,15 +153,8 @@ The server output is as follows.
  User Not Defined.  Defaulting to EUID '102'
 }}}
 
-Then I went to lynx to access the test page.
+Then go to Firefox (or your browser of choice) to access the test page at
 
 {{{
-   lynx localhost:9000
-}}}
-
-To have more useful demo working (such as a guestbook), you need to run the python development server so our api proxy has something to proxy the requests to:
-
-{{{
-    ./python_sdk_partial/dev_appserver.py apiproxy_python &
-    perl dev_appserver.pl demos/guestbook
+   http://localhost:9000
 }}}
