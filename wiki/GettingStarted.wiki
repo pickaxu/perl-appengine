@@ -151,15 +151,26 @@ keep up to date.)
 = Running the Development Server =
 
 The code currently checked in to the perl-appengine subversion repository is
-targeted to be the development kit. To demonstrate what it can currently do,
+targeted to be the development kit.
+
+First you have to fire up the Python version of the development server 
+running an API proxy application.  In a separate window,
 type the following.
 
 {{{
    cd $HOME/src/perl-appengine
-   dev_appserver.pl demos/prototest
+   python_sdk_partial\dev_appserver.py apiproxy_python
 }}}
 
-The server output was as follows.
+To run one of the demos, choose a demo such as "demos/guestbook".
+Then type the following.
+
+{{{
+   cd $HOME/src/perl-appengine
+   dev_appserver.pl demos/guestbook
+}}}
+
+The server output is something like the following.
 
 {{{
  2008/07/28-22:52:38 AppEngine::Server::NetServer0 (type Net::Server::Fork) starting! pid(14736)
@@ -168,17 +179,10 @@ The server output was as follows.
  User Not Defined.  Defaulting to EUID '102'
 }}}
 
-Then I went to lynx to access the test page.
+Then go to lynx to access the test page.
 
 {{{
    lynx localhost:9000
-}}}
-
-To have more useful demo working (such as a guestbook), you need to run the python development server so our api proxy has something to proxy the requests to:
-
-{{{
-    ./python_sdk_partial/dev_appserver.py apiproxy_python &
-    perl dev_appserver.pl demos/guestbook
 }}}
 
 = What's Going On =
