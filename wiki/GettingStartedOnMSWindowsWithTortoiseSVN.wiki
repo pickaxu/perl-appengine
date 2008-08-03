@@ -1,6 +1,12 @@
 #summary Getting started on MS Windows with TortoiseSVN
 
-= Tools =
+= Introduction =
+
+I normally use TortoiseSVN for Subversion on Windows.
+However, I could not get anonymous checkout to work to code.google.com.
+
+This page exists so that those who have better luck than I can document what
+they did to make it work.
 
 == Tortoise SVN ==
 
@@ -63,6 +69,18 @@ In the dialog box, enter
 
 Push the [OK] button. Then answer [Yes] the question of whether you would like
 to create the "perl-appengine" directory.
+
+== ERROR ON CHECKOUT ==
+
+The above instructions worked for me if I used the "https" URL instead and
+supplied a username and password. However, when I tried doing anonymous
+checkouts (with "http") as described above, I always got the following error.
+
+ Command: Checkout from http://sys-protect.googlecode.com/svn/trunk, revision HEAD, Fully recursive, Externals included  
+ Error: PROPFIND of '/svn/trunk': 200 OK (http://sys-protect.googlecode.com)  
+ Finished!:   
+
+Therefore, I am turning to the command-line subversion tools from subversion.tigris.org.
 
 == Updating the Perl App Engine Software ==
 
