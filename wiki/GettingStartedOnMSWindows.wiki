@@ -22,6 +22,26 @@ The rest of this document will assume that you install it in C:\strawberry, the 
 
 NOTE: If you already had Active State Perl installed, then C:\Perl\bin (Active State) might be before C:\strawberry\perl\bin in the PATH. If so, go to Control Panel->System->Advanced->Environment Variables->System Variables->Path and remove "C:\Perl\bin".
 
+== Python 2.5 ==
+
+If you don't have Python 2.5 installed, get it here.
+
+  * http://www.python.org/
+
+Download the Windows installer file to some location, then run it to install.
+The rest of this document will assume you have TortoiseSVN.
+
+== Subversion ==
+
+If you don't have a Subversion client, get the command line client subversion tools here.
+
+  * http://www.collab.net/downloads/subversion/
+
+You need to register for an account at CollabNet in order to download the software,
+but registration is free.
+
+Download the Windows installer file to some location, then run it to install.
+
 = Installing Required Perl Modules from CPAN =
 
 Here's how to get started.
@@ -63,26 +83,6 @@ Notes:
   * The test for HTTP::Server::Simple hung up forever on Windows. I had to kill it. I tried using "force" but it did no good. I resorted to using the commands under the "build" directory as described.
   * The CPAN shell downloads and unpacks the distributions under C:\strawberry\cpan\build. However, the directory names have six random characters at the end to make them unique. Your directory names will not be the same as I show here. Do the "dir" to find out what your directory names are, and do the "dmake install" in the appropriate directory.
 
-== Python 2.5 ==
-
-If you don't have Python 2.5 installed, get it here.
-
-  * http://www.python.org/
-
-Download the Windows installer file to some location, then run it to install.
-The rest of this document will assume you have TortoiseSVN.
-
-== Subversion ==
-
-If you don't have a Subversion client, get the command line client subversion tools here.
-
-  * http://www.collab.net/downloads/subversion/
-
-You need to register for an account at CollabNet in order to download the software,
-but registration is free.
-
-Download the Windows installer file to some location, then run it to install.
-
 = Installing perl-appengine Software =
 
 Go to the Windows Command shell.
@@ -90,6 +90,8 @@ Go to the Windows Command shell.
 {{{
    cd \strawberry\perl
    mkdir src
+   cd src
+
 }}}
 
 == Initial Compilation ==
