@@ -74,12 +74,14 @@ The rest of this document will assume you have TortoiseSVN.
 
 == Subversion ==
 
-If you don't have a Subversion client, get TortoiseSVN here.
+If you don't have a Subversion client, get the command line client subversion tools here.
 
-  * http://www.tortoisesvn.net/
+  * http://www.collab.net/downloads/subversion/
+
+You need to register for an account at CollabNet in order to download the software,
+but registration is free.
 
 Download the Windows installer file to some location, then run it to install.
-The rest of this document will assume you have TortoiseSVN.
 
 = Installing perl-appengine Software =
 
