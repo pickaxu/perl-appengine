@@ -116,6 +116,13 @@ message Property {
 // A path; also used as an Entity Group key.  This is an ordered list
 // of (type, id or name) tuples.  Each element should have either an id or a
 //  name, but not both.
+// Clarification: "so, yeah, it's a little tricky. that comment
+// correctly describes all Path PBs that refer to *complete* keys. for
+// new entities that haven't been inserted yet, and don't use name, the
+// datastore will allocate them an id when they're inserted. given that,
+// their keys are incomplete until they're inserted. so, when the runtime
+// sends them to the datastore in a PutRequest, they won't have an id
+// yet, so the last path element will only have type, not id or name."
 message Path {
   repeated group Element = 1 {
     required bytes type = 2;
