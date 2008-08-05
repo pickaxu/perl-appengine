@@ -159,7 +159,7 @@ type the following.
 
 {{{
    cd $HOME/src/perl-appengine
-   python_sdk_partial\dev_appserver.py apiproxy_python
+   python_sdk_partial/dev_appserver.py apiproxy_python
 }}}
 
 To run one of the demos, choose a demo such as "demos/guestbook".
