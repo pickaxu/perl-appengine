@@ -96,6 +96,16 @@ Go to the Windows Command shell.
    svn checkout http://perl-appengine.googlecode.com/svn/trunk/  perl-appengine
 }}}
 
+NOTE: I actually had a problem with this. Both the command line subversion command
+(svn) and Tortoise SVN gave me the same problem. The non-anonymous checkout works 
+fine on Windows (using https) and the same command works on Linux. Someone, please
+help.
+
+{{{
+   C:\strawberry\perl\src>svn checkout http://perl-appengine.googlecode.com/svn/trunk/  perl-appengine
+   svn: PROPFIND of '/svn/trunk': 200 OK (http://perl-appengine.googlecode.com)
+}}}
+
 Then do the initial compilation. (Do this once.)
 Note: These do not need to be installed via "make install" as the
 perl-appengine dev kit includes relative paths to the appropriate directories.
