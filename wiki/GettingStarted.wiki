@@ -9,7 +9,7 @@ let us know if you find an error or discrepancy.
 = Background =
 
 Currently, the low level plumbing that will allow a Perl program to access
-the available services within the Google compute farm are being implemented.
+the available services within the Google compute farm is being implemented.
 
 == protobuf-perl ==
 
