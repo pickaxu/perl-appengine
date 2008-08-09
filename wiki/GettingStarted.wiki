@@ -154,7 +154,7 @@ The code currently checked in to the perl-appengine subversion repository is
 targeted to be the development kit.
 
 First you have to fire up the Python version of the development server 
-running an API proxy application.  In a separate window,
+running an API proxy application.  In a first terminal window,
 type the following.
 
 {{{
@@ -163,7 +163,7 @@ type the following.
 }}}
 
 To run one of the demos, choose a demo such as "demos/guestbook".
-Then type the following.
+Then in a second terminal window, type the following.
 
 {{{
    cd $HOME/src/perl-appengine
@@ -179,7 +179,7 @@ The server output is something like the following.
  User Not Defined.  Defaulting to EUID '102'
 }}}
 
-Then go to lynx to access the test page.
+Then in a third terminal window, go to lynx to access the test page.
 
 {{{
    lynx localhost:9000
