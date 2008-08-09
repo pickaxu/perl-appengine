@@ -1,0 +1,11 @@
+#summary The flow of execution through the software
+
+= Development Kit Startup =
+
+== python_sdk_partial/dev_appserver.py apiproxy_python ==
+
+  * A part of the Python SDK for Google App Engine (i.e. python_sdk_partial) is included in the "perl-appengine" project
+  * When you run the dev_appserver.py, you are running the Python server that comes in the SDK, emulating the Google runtime environment for Python applications
+  * Supplying the argument "apiproxy_python" causes it to run an application written in Python which unpacks protocol-buffered requests for Google App Engine services and executes them in the Python environment.
+
+  * When an HTTP request comes from a browser (in our case to localhost, port 9000),
