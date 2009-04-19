@@ -24,6 +24,7 @@ use base qw(HTTP::Server::Simple HTTP::Server::Simple::CGI::Environment);
 use strict;
 use warnings;
 
+use AppEngine::APIProxy qw(become_apiproxy_client);
 use AppEngine::AppConfig;
 use IO::Socket::INET;
 use English;
@@ -32,8 +33,6 @@ use File::Spec::Functions qw(catfile);
 use POSIX qw(dup2);
 use Socket;
 use IPC::Run 'start';
-use LWP::UserAgent;
-use HTTP::Request::Common;
 use Data::Dumper;
 
 our $VERSION = "0.01";
@@ -147,48 +146,5 @@ sub _handle_script {
          "-I$appdir", "$appdir/$script";
 }
 
-sub become_apiproxy_client {
-    my $socket = shift;
 
-    my $ua = LWP::UserAgent->new;
-
-    select($socket);
-    $| = 1;
-    while (my $cmd = <$socket>) {
-        chomp $cmd;
-        unless ($cmd =~ /^apiproxy (\S+) (\S+) (\d+)/) {
-            print STDERR "Unknown apiproxy line: [$cmd]\n";
-            print $socket "You said: $cmd\n";
-            next;
-        }
-        my ($service, $method, $request_length) = ($1, $2, $3);
-        my $pb_request;
-        my $rv = read($socket, $pb_request, $request_length);
-        if ($rv != $request_length) {
-            die "Failed to read entire request from app.";
-        }
-        my $req = POST "http://127.0.0.1:8080/do_req", [
-            service => $service,
-            method => $method,
-            request => $pb_request, ];
-        print STDERR "Sending request: ", $req->as_string, "\n";
-        my $res = $ua->request($req);
-
-        my $success = $res->is_success ? 1 : 0;
-        my $body;
-        if ($success) {
-            if ($res->content =~ /^Response: \[(.*)\]\s*$/s) {
-                $body = $1;
-            } else {
-                $body = $res->content;
-                $success = 0;
-            }
-        } else {
-            $body = $res->status_line;
-        }
-        print STDERR "Got apiproxy result (for $service, $method) of success=$success:\n";
-        print STDERR Dumper($body);
-        print $socket "apiresult $success ", length($body), "\n$body";
-    }
-}
 
