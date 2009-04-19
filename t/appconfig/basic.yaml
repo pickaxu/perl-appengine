@@ -6,11 +6,4 @@ api_version: 1
 handlers:
  - url: .*
    script: app.pl
-application: test
-version: 1
-runtime: perl
-api_version: 1
 
-handlers:
- - url: .*
-   script: app.pl
