@@ -19,7 +19,7 @@
 #
 
 package AppEngine::Server;
-use base 'HTTP::Server::Simple::CGI';
+use base qw(HTTP::Server::Simple HTTP::Server::Simple::CGI::Environment);
 
 use strict;
 use warnings;
@@ -51,10 +51,19 @@ sub new {
 
 sub net_server { 'Net::Server::Fork' }
 
-sub after_setup_listener {
+sub accept_hook {
     my $self = shift;
+    $self->setup_environment(@_);
+}
 
-    warn "===> after setup listener";
+sub post_setup_hook {
+    my $self = shift;
+    $self->setup_server_url;
+}
+
+sub setup {
+    my $self = shift;
+    $self->setup_environment_from_metadata(@_);
 }
 
 
@@ -69,13 +78,13 @@ my $apiproxy_server = IO::Socket::INET->new(Listen => 10,
     or die "Couldn't listen on apiproxy server socket.";
 
 
-sub handle_request {
-    my ($self, $cgi) = @_;
+sub handler {
+    my ($self) = @_;
 
-    my $path = $cgi->path_info();
+    my $path = $ENV{PATH_INFO};
     my ($type, $file) = $self->{app_config}->handler_for_path($path);
 
-    warn "Request for $path\n";
+    warn "Request for $path to handler $file\n";
 
     unless ($type) {
         print "HTTP/1.0 404 Not found\r\n";
@@ -86,8 +95,7 @@ sub handle_request {
 
     if ($type eq 'script') {
         $self->_handle_script($file);
-    }
-    elsif ($type eq 'static') {
+    } elsif ($type eq 'static') {
         $self->_handle_static($file);
     }
 }
@@ -99,7 +107,8 @@ sub _handle_static {
 
 sub _handle_script {
     my ($self, $script) = @_;
-    my $client_socket = $self->stdio_handle;
+    my $stdin = $self->stdin_handle;
+    my $stdout = $self->stdout_handle;
 
     # setup socketpair between the untrusted app and the parent
     my $app_apiproxy_fh;
@@ -110,7 +119,8 @@ sub _handle_script {
     my $app_pid = fork;
     die "Couldn't fork: $!" unless defined $app_pid;
     if ($app_pid) {
-        close($client_socket);
+        close $stdin;
+        close $stdout;
         close $app_apiproxy_fh;
 
         become_apiproxy_client($parent_apiproxy_fh);
@@ -119,46 +129,22 @@ sub _handle_script {
 
     close $parent_apiproxy_fh;
 
-    dup2(fileno($client_socket), 0) == 0 or die "dup2 of 0 failed: $!";
-    dup2(fileno($client_socket), 1) == 1 or die "dup2 of 1 failed: $!";
+    dup2(fileno($stdin), 0) == 0 or die "dup2 of 0 failed: $!";
+    dup2(fileno($stdout), 1) == 1 or die "dup2 of 1 failed: $!";
     dup2(fileno(STDERR), 2) == 2 or die "dup2 of 2 failed: $!";
     dup2(fileno($app_apiproxy_fh), 3) == 3 or die "dup2 of 3 failed: $!";
 
-    my $stderr = '';
     my $appdir = $self->{pae_appdir};
 
     $ENV{CLASS_MOP_NO_XS} = 1;
-    start ["perl",
-           "-Ilib",  # AppEngine::APIProxy, ::Service::Memcache, etc.
-           "-Icpanlib/Class-MOP/lib",
-           "-I../protobuf-perl/perl/lib",  # Perl protobuf stuff
-           "-I../protobuf-perl/perl/cpanlib",
-           qw(-I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect),
-           "-I$appdir", "$appdir/$script"],
-        '<pipe', \*IN,
-        '>pipe', \*OUT,
-        '2>pipe', \*ERR or die "died with $?";
-    {
-        local $/;
-        $stderr = <ERR>;
-        if (length($stderr)) {
-            print STDERR "app's stderr: [$stderr]\n";
-        }
-    }
-
-    my $should_send_header = 1;
-    local $/ = 16384;
-
-    while (my $buf = <OUT>) {
-        if ($should_send_header && $buf =~ m'^HTTP/' && $buf =~ m/(\r?\n){2}/ ){
-        }
-        else {
-            print $client_socket "HTTP/1.0 200 OK\r\n";    # probably OK by now
-            print $client_socket "Content-Type: text/html\r\n\r\n";
-        }
-        $should_send_header = 0;
-        print $buf;
-    }
+    $ENV{APPLICATION_ID} = $self->{app_config}->app_name;
+    exec "perl",
+         "-Ilib",  # AppEngine::APIProxy, ::Service::Memcache, etc.
+         "-Icpanlib/Class-MOP/lib",
+         "-I../protobuf-perl/perl/lib",  # Perl protobuf stuff
+         "-I../protobuf-perl/perl/cpanlib",
+         qw(-I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect),
+         "-I$appdir", "$appdir/$script";
 }
 
 sub become_apiproxy_client {
