@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use 5.6.1;
 use Protobuf;
-package AppEngine::Service::Entity;
+use Protobuf::Types;
 
 package AppEngine::Service::Entity;
 
@@ -13,13 +13,12 @@ package AppEngine::Service::Entity;
 use constant TRUE => 1;
 use constant FALSE => 0;
 ## Top-level enums:
-
 ## Top-level extensions:
 
 ## All nested enums:
 our $_PROPERTY_MEANING = Protobuf::EnumDescriptor->new(
   name => 'Meaning',
-  full_name => 'appengine_entity.Property.Meaning',
+  full_name => 'AppEngine::Service::Entity::Meaning',
   values => [
     Protobuf::EnumValueDescriptor->new(name => 'BLOB', index => 0, number => 14, type => undef),
     Protobuf::EnumValueDescriptor->new(name => 'TEXT', index => 1, number => 15, type => undef),
@@ -55,7 +54,7 @@ $_PROPERTY_MEANING->values->[14]->set_type($_PROPERTY_MEANING);
 
 our $_ENTITYPROTO_KIND = Protobuf::EnumDescriptor->new(
   name => 'Kind',
-  full_name => 'appengine_entity.EntityProto.Kind',
+  full_name => 'AppEngine::Service::Entity::Kind',
   values => [
     Protobuf::EnumValueDescriptor->new(name => 'GD_CONTACT', index => 0, number => 1, type => undef),
     Protobuf::EnumValueDescriptor->new(name => 'GD_EVENT', index => 1, number => 2, type => undef),
@@ -67,7 +66,7 @@ $_ENTITYPROTO_KIND->values->[2]->set_type($_ENTITYPROTO_KIND);
 
 our $_INDEX_PROPERTY_DIRECTION = Protobuf::EnumDescriptor->new(
   name => 'Direction',
-  full_name => 'appengine_entity.Index.Property.Direction',
+  full_name => 'AppEngine::Service::Entity::Direction',
   values => [
     Protobuf::EnumValueDescriptor->new(name => 'ASCENDING', index => 0, number => 1, type => undef),
     Protobuf::EnumValueDescriptor->new(name => 'DESCENDING', index => 1, number => 2, type => undef),
@@ -77,7 +76,7 @@ $_INDEX_PROPERTY_DIRECTION->values->[1]->set_type($_INDEX_PROPERTY_DIRECTION);
 
 our $_COMPOSITEINDEX_STATE = Protobuf::EnumDescriptor->new(
   name => 'State',
-  full_name => 'appengine_entity.CompositeIndex.State',
+  full_name => 'AppEngine::Service::Entity::State',
   values => [
     Protobuf::EnumValueDescriptor->new(name => 'WRITE_ONLY', index => 0, number => 1, type => undef),
     Protobuf::EnumValueDescriptor->new(name => 'READ_WRITE', index => 1, number => 2, type => undef),
@@ -93,7 +92,7 @@ $_COMPOSITEINDEX_STATE->values->[3]->set_type($_COMPOSITEINDEX_STATE);
 
 our $_PROPERTYVALUE_POINTVALUE = Protobuf::Descriptor->new(
   name => 'PointValue',
-  full_name => 'appengine_entity.PropertyValue.PointValue',
+  full_name => 'AppEngine::Service::Entity::PropertyValue.PointValue',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -120,7 +119,7 @@ our $_PROPERTYVALUE_POINTVALUE = Protobuf::Descriptor->new(
 
 our $_PROPERTYVALUE_USERVALUE = Protobuf::Descriptor->new(
   name => 'UserValue',
-  full_name => 'appengine_entity.PropertyValue.UserValue',
+  full_name => 'AppEngine::Service::Entity::PropertyValue.UserValue',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -144,7 +143,7 @@ our $_PROPERTYVALUE_USERVALUE = Protobuf::Descriptor->new(
     Protobuf::FieldDescriptor->new(
       name => 'gaiaid', index => 3, number => 18,
       type => 3, cpp_type => 2, label => 2,
-      default_value => 0,
+      default_value => Protobuf::Types::BI("0"),
       message_type => undef, enum_type => undef, containing_type => undef,
       is_extension => FALSE, extension_scope => undef),
   ],
@@ -159,7 +158,7 @@ our $_PROPERTYVALUE_USERVALUE = Protobuf::Descriptor->new(
 
 our $_PROPERTYVALUE_REFERENCEVALUE_PATHELEMENT = Protobuf::Descriptor->new(
   name => 'PathElement',
-  full_name => 'appengine_entity.PropertyValue.ReferenceValue.PathElement',
+  full_name => 'AppEngine::Service::Entity::PropertyValue.ReferenceValue.PathElement',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -171,7 +170,7 @@ our $_PROPERTYVALUE_REFERENCEVALUE_PATHELEMENT = Protobuf::Descriptor->new(
     Protobuf::FieldDescriptor->new(
       name => 'id', index => 1, number => 16,
       type => 3, cpp_type => 2, label => 1,
-      default_value => 0,
+      default_value => Protobuf::Types::BI("0"),
       message_type => undef, enum_type => undef, containing_type => undef,
       is_extension => FALSE, extension_scope => undef),
     Protobuf::FieldDescriptor->new(
@@ -192,7 +191,7 @@ our $_PROPERTYVALUE_REFERENCEVALUE_PATHELEMENT = Protobuf::Descriptor->new(
 
 our $_PROPERTYVALUE_REFERENCEVALUE = Protobuf::Descriptor->new(
   name => 'ReferenceValue',
-  full_name => 'appengine_entity.PropertyValue.ReferenceValue',
+  full_name => 'AppEngine::Service::Entity::PropertyValue.ReferenceValue',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -219,13 +218,13 @@ our $_PROPERTYVALUE_REFERENCEVALUE = Protobuf::Descriptor->new(
 
 our $_PROPERTYVALUE = Protobuf::Descriptor->new(
   name => 'PropertyValue',
-  full_name => 'appengine_entity.PropertyValue',
+  full_name => 'AppEngine::Service::Entity::PropertyValue',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
       name => 'int64Value', index => 0, number => 1,
       type => 3, cpp_type => 2, label => 1,
-      default_value => 0,
+      default_value => Protobuf::Types::BI("0"),
       message_type => undef, enum_type => undef, containing_type => undef,
       is_extension => FALSE, extension_scope => undef),
     Protobuf::FieldDescriptor->new(
@@ -277,7 +276,7 @@ our $_PROPERTYVALUE = Protobuf::Descriptor->new(
 
 our $_PROPERTY = Protobuf::Descriptor->new(
   name => 'Property',
-  full_name => 'appengine_entity.Property',
+  full_name => 'AppEngine::Service::Entity::Property',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -324,7 +323,7 @@ our $_PROPERTY = Protobuf::Descriptor->new(
 
 our $_PATH_ELEMENT = Protobuf::Descriptor->new(
   name => 'Element',
-  full_name => 'appengine_entity.Path.Element',
+  full_name => 'AppEngine::Service::Entity::Path.Element',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -336,7 +335,7 @@ our $_PATH_ELEMENT = Protobuf::Descriptor->new(
     Protobuf::FieldDescriptor->new(
       name => 'id', index => 1, number => 3,
       type => 3, cpp_type => 2, label => 1,
-      default_value => 0,
+      default_value => Protobuf::Types::BI("0"),
       message_type => undef, enum_type => undef, containing_type => undef,
       is_extension => FALSE, extension_scope => undef),
     Protobuf::FieldDescriptor->new(
@@ -357,7 +356,7 @@ our $_PATH_ELEMENT = Protobuf::Descriptor->new(
 
 our $_PATH = Protobuf::Descriptor->new(
   name => 'Path',
-  full_name => 'appengine_entity.Path',
+  full_name => 'AppEngine::Service::Entity::Path',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -379,7 +378,7 @@ our $_PATH = Protobuf::Descriptor->new(
 
 our $_REFERENCE = Protobuf::Descriptor->new(
   name => 'Reference',
-  full_name => 'appengine_entity.Reference',
+  full_name => 'AppEngine::Service::Entity::Reference',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -407,7 +406,7 @@ our $_REFERENCE = Protobuf::Descriptor->new(
 
 our $_USER = Protobuf::Descriptor->new(
   name => 'User',
-  full_name => 'appengine_entity.User',
+  full_name => 'AppEngine::Service::Entity::User',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -431,7 +430,7 @@ our $_USER = Protobuf::Descriptor->new(
     Protobuf::FieldDescriptor->new(
       name => 'gaiaid', index => 3, number => 4,
       type => 3, cpp_type => 2, label => 2,
-      default_value => 0,
+      default_value => Protobuf::Types::BI("0"),
       message_type => undef, enum_type => undef, containing_type => undef,
       is_extension => FALSE, extension_scope => undef),
   ],
@@ -447,7 +446,7 @@ our $_USER = Protobuf::Descriptor->new(
 
 our $_ENTITYPROTO = Protobuf::Descriptor->new(
   name => 'EntityProto',
-  full_name => 'appengine_entity.EntityProto',
+  full_name => 'AppEngine::Service::Entity::EntityProto',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -506,13 +505,13 @@ our $_ENTITYPROTO = Protobuf::Descriptor->new(
 
 our $_COMPOSITEPROPERTY = Protobuf::Descriptor->new(
   name => 'CompositeProperty',
-  full_name => 'appengine_entity.CompositeProperty',
+  full_name => 'AppEngine::Service::Entity::CompositeProperty',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
       name => 'index_id', index => 0, number => 1,
       type => 3, cpp_type => 2, label => 2,
-      default_value => 0,
+      default_value => Protobuf::Types::BI("0"),
       message_type => undef, enum_type => undef, containing_type => undef,
       is_extension => FALSE, extension_scope => undef),
     Protobuf::FieldDescriptor->new(
@@ -534,7 +533,7 @@ our $_COMPOSITEPROPERTY = Protobuf::Descriptor->new(
 
 our $_INDEX_PROPERTY = Protobuf::Descriptor->new(
   name => 'Property',
-  full_name => 'appengine_entity.Index.Property',
+  full_name => 'AppEngine::Service::Entity::Index.Property',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -562,7 +561,7 @@ our $_INDEX_PROPERTY = Protobuf::Descriptor->new(
 
 our $_INDEX = Protobuf::Descriptor->new(
   name => 'Index',
-  full_name => 'appengine_entity.Index',
+  full_name => 'AppEngine::Service::Entity::Index',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -596,7 +595,7 @@ our $_INDEX = Protobuf::Descriptor->new(
 
 our $_COMPOSITEINDEX = Protobuf::Descriptor->new(
   name => 'CompositeIndex',
-  full_name => 'appengine_entity.CompositeIndex',
+  full_name => 'AppEngine::Service::Entity::CompositeIndex',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -608,7 +607,7 @@ our $_COMPOSITEINDEX = Protobuf::Descriptor->new(
     Protobuf::FieldDescriptor->new(
       name => 'id', index => 1, number => 2,
       type => 3, cpp_type => 2, label => 2,
-      default_value => 0,
+      default_value => Protobuf::Types::BI("0"),
       message_type => undef, enum_type => undef, containing_type => undef,
       is_extension => FALSE, extension_scope => undef),
     Protobuf::FieldDescriptor->new(
@@ -683,3 +682,5 @@ Protobuf::Message->GenerateClass(__PACKAGE__ . '::CompositeIndex', $_COMPOSITEIN
 
 ## Fix foreign fields in extensions:
 ## Services:
+
+1;

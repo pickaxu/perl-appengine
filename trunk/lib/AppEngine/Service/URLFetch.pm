@@ -5,6 +5,8 @@ use strict;
 use warnings;
 use 5.6.1;
 use Protobuf;
+use Protobuf::Types;
+
 package AppEngine::Service::URLFetch;
 
 package AppEngine::Service;
@@ -13,13 +15,12 @@ package AppEngine::Service;
 use constant TRUE => 1;
 use constant FALSE => 0;
 ## Top-level enums:
-
 ## Top-level extensions:
 
 ## All nested enums:
 our $_URLFETCHSERVICEERROR_ERRORCODE = Protobuf::EnumDescriptor->new(
   name => 'ErrorCode',
-  full_name => 'appengine_api.URLFetchServiceError.ErrorCode',
+  full_name => 'AppEngine::Service::ErrorCode',
   values => [
     Protobuf::EnumValueDescriptor->new(name => 'OK', index => 0, number => 0, type => undef),
     Protobuf::EnumValueDescriptor->new(name => 'INVALID_URL', index => 1, number => 1, type => undef),
@@ -35,7 +36,7 @@ $_URLFETCHSERVICEERROR_ERRORCODE->values->[4]->set_type($_URLFETCHSERVICEERROR_E
 
 our $_URLFETCHREQUEST_REQUESTMETHOD = Protobuf::EnumDescriptor->new(
   name => 'RequestMethod',
-  full_name => 'appengine_api.URLFetchRequest.RequestMethod',
+  full_name => 'AppEngine::Service::RequestMethod',
   values => [
     Protobuf::EnumValueDescriptor->new(name => 'GET', index => 0, number => 1, type => undef),
     Protobuf::EnumValueDescriptor->new(name => 'POST', index => 1, number => 2, type => undef),
@@ -53,7 +54,7 @@ $_URLFETCHREQUEST_REQUESTMETHOD->values->[4]->set_type($_URLFETCHREQUEST_REQUEST
 
 our $_URLFETCHSERVICEERROR = Protobuf::Descriptor->new(
   name => 'URLFetchServiceError',
-  full_name => 'appengine_api.URLFetchServiceError',
+  full_name => 'AppEngine::Service::URLFetchServiceError',
   containing_type => undef,
   fields => [
   ],
@@ -70,7 +71,7 @@ our $_URLFETCHSERVICEERROR = Protobuf::Descriptor->new(
 
 our $_URLFETCHREQUEST_HEADER = Protobuf::Descriptor->new(
   name => 'Header',
-  full_name => 'appengine_api.URLFetchRequest.Header',
+  full_name => 'AppEngine::Service::URLFetchRequest.Header',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -97,7 +98,7 @@ our $_URLFETCHREQUEST_HEADER = Protobuf::Descriptor->new(
 
 our $_URLFETCHREQUEST = Protobuf::Descriptor->new(
   name => 'URLFetchRequest',
-  full_name => 'appengine_api.URLFetchRequest',
+  full_name => 'AppEngine::Service::URLFetchRequest',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -138,7 +139,7 @@ our $_URLFETCHREQUEST = Protobuf::Descriptor->new(
 
 our $_URLFETCHRESPONSE_HEADER = Protobuf::Descriptor->new(
   name => 'Header',
-  full_name => 'appengine_api.URLFetchResponse.Header',
+  full_name => 'AppEngine::Service::URLFetchResponse.Header',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -165,7 +166,7 @@ our $_URLFETCHRESPONSE_HEADER = Protobuf::Descriptor->new(
 
 our $_URLFETCHRESPONSE = Protobuf::Descriptor->new(
   name => 'URLFetchResponse',
-  full_name => 'appengine_api.URLFetchResponse',
+  full_name => 'AppEngine::Service::URLFetchResponse',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -220,3 +221,5 @@ Protobuf::Message->GenerateClass(__PACKAGE__ . '::URLFetchResponse::Header', $_U
 
 ## Fix foreign fields in extensions:
 ## Services:
+
+1;

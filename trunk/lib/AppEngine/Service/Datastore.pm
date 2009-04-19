@@ -5,7 +5,7 @@ use strict;
 use warnings;
 use 5.6.1;
 use Protobuf;
-package AppEngine::Service::Datastore;
+use Protobuf::Types;
 
 package AppEngine::Service::Datastore;
 
@@ -13,13 +13,12 @@ package AppEngine::Service::Datastore;
 use constant TRUE => 1;
 use constant FALSE => 0;
 ## Top-level enums:
-
 ## Top-level extensions:
 
 ## All nested enums:
 our $_QUERY_FILTER_OPERATOR = Protobuf::EnumDescriptor->new(
   name => 'Operator',
-  full_name => 'appengine_datastore_v3.Query.Filter.Operator',
+  full_name => 'AppEngine::Service::Datastore::Operator',
   values => [
     Protobuf::EnumValueDescriptor->new(name => 'LESS_THAN', index => 0, number => 1, type => undef),
     Protobuf::EnumValueDescriptor->new(name => 'LESS_THAN_OR_EQUAL', index => 1, number => 2, type => undef),
@@ -39,7 +38,7 @@ $_QUERY_FILTER_OPERATOR->values->[6]->set_type($_QUERY_FILTER_OPERATOR);
 
 our $_QUERY_ORDER_DIRECTION = Protobuf::EnumDescriptor->new(
   name => 'Direction',
-  full_name => 'appengine_datastore_v3.Query.Order.Direction',
+  full_name => 'AppEngine::Service::Datastore::Direction',
   values => [
     Protobuf::EnumValueDescriptor->new(name => 'ASCENDING', index => 0, number => 1, type => undef),
     Protobuf::EnumValueDescriptor->new(name => 'DESCENDING', index => 1, number => 2, type => undef),
@@ -49,7 +48,7 @@ $_QUERY_ORDER_DIRECTION->values->[1]->set_type($_QUERY_ORDER_DIRECTION);
 
 our $_ERROR_ERRORCODE = Protobuf::EnumDescriptor->new(
   name => 'ErrorCode',
-  full_name => 'appengine_datastore_v3.Error.ErrorCode',
+  full_name => 'AppEngine::Service::Datastore::ErrorCode',
   values => [
     Protobuf::EnumValueDescriptor->new(name => 'BAD_REQUEST', index => 0, number => 1, type => undef),
     Protobuf::EnumValueDescriptor->new(name => 'CONCURRENT_TRANSACTION', index => 1, number => 2, type => undef),
@@ -67,13 +66,13 @@ $_ERROR_ERRORCODE->values->[4]->set_type($_ERROR_ERRORCODE);
 
 our $_TRANSACTION = Protobuf::Descriptor->new(
   name => 'Transaction',
-  full_name => 'appengine_datastore_v3.Transaction',
+  full_name => 'AppEngine::Service::Datastore::Transaction',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
       name => 'handle', index => 0, number => 1,
       type => 6, cpp_type => 4, label => 2,
-      default_value => 0,
+      default_value => Protobuf::Types::BI("0"),
       message_type => undef, enum_type => undef, containing_type => undef,
       is_extension => FALSE, extension_scope => undef),
   ],
@@ -89,7 +88,7 @@ our $_TRANSACTION = Protobuf::Descriptor->new(
 
 our $_QUERY_FILTER = Protobuf::Descriptor->new(
   name => 'Filter',
-  full_name => 'appengine_datastore_v3.Query.Filter',
+  full_name => 'AppEngine::Service::Datastore::Query.Filter',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -117,7 +116,7 @@ our $_QUERY_FILTER = Protobuf::Descriptor->new(
 
 our $_QUERY_ORDER = Protobuf::Descriptor->new(
   name => 'Order',
-  full_name => 'appengine_datastore_v3.Query.Order',
+  full_name => 'AppEngine::Service::Datastore::Query.Order',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -145,7 +144,7 @@ our $_QUERY_ORDER = Protobuf::Descriptor->new(
 
 our $_QUERY = Protobuf::Descriptor->new(
   name => 'Query',
-  full_name => 'appengine_datastore_v3.Query',
+  full_name => 'AppEngine::Service::Datastore::Query',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -221,7 +220,7 @@ our $_QUERY = Protobuf::Descriptor->new(
 
 our $_QUERYEXPLANATION = Protobuf::Descriptor->new(
   name => 'QueryExplanation',
-  full_name => 'appengine_datastore_v3.QueryExplanation',
+  full_name => 'AppEngine::Service::Datastore::QueryExplanation',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -261,13 +260,13 @@ our $_QUERYEXPLANATION = Protobuf::Descriptor->new(
 
 our $_CURSOR = Protobuf::Descriptor->new(
   name => 'Cursor',
-  full_name => 'appengine_datastore_v3.Cursor',
+  full_name => 'AppEngine::Service::Datastore::Cursor',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
       name => 'cursor', index => 0, number => 1,
       type => 6, cpp_type => 4, label => 2,
-      default_value => 0,
+      default_value => Protobuf::Types::BI("0"),
       message_type => undef, enum_type => undef, containing_type => undef,
       is_extension => FALSE, extension_scope => undef),
   ],
@@ -283,7 +282,7 @@ our $_CURSOR = Protobuf::Descriptor->new(
 
 our $_ERROR = Protobuf::Descriptor->new(
   name => 'Error',
-  full_name => 'appengine_datastore_v3.Error',
+  full_name => 'AppEngine::Service::Datastore::Error',
   containing_type => undef,
   fields => [
   ],
@@ -300,7 +299,7 @@ our $_ERROR = Protobuf::Descriptor->new(
 
 our $_GETREQUEST = Protobuf::Descriptor->new(
   name => 'GetRequest',
-  full_name => 'appengine_datastore_v3.GetRequest',
+  full_name => 'AppEngine::Service::Datastore::GetRequest',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -328,7 +327,7 @@ our $_GETREQUEST = Protobuf::Descriptor->new(
 
 our $_GETRESPONSE_ENTITY = Protobuf::Descriptor->new(
   name => 'Entity',
-  full_name => 'appengine_datastore_v3.GetResponse.Entity',
+  full_name => 'AppEngine::Service::Datastore::GetResponse.Entity',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -349,7 +348,7 @@ our $_GETRESPONSE_ENTITY = Protobuf::Descriptor->new(
 
 our $_GETRESPONSE = Protobuf::Descriptor->new(
   name => 'GetResponse',
-  full_name => 'appengine_datastore_v3.GetResponse',
+  full_name => 'AppEngine::Service::Datastore::GetResponse',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -371,7 +370,7 @@ our $_GETRESPONSE = Protobuf::Descriptor->new(
 
 our $_PUTREQUEST = Protobuf::Descriptor->new(
   name => 'PutRequest',
-  full_name => 'appengine_datastore_v3.PutRequest',
+  full_name => 'AppEngine::Service::Datastore::PutRequest',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -405,7 +404,7 @@ our $_PUTREQUEST = Protobuf::Descriptor->new(
 
 our $_PUTRESPONSE = Protobuf::Descriptor->new(
   name => 'PutResponse',
-  full_name => 'appengine_datastore_v3.PutResponse',
+  full_name => 'AppEngine::Service::Datastore::PutResponse',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -427,7 +426,7 @@ our $_PUTRESPONSE = Protobuf::Descriptor->new(
 
 our $_DELETEREQUEST = Protobuf::Descriptor->new(
   name => 'DeleteRequest',
-  full_name => 'appengine_datastore_v3.DeleteRequest',
+  full_name => 'AppEngine::Service::Datastore::DeleteRequest',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -455,7 +454,7 @@ our $_DELETEREQUEST = Protobuf::Descriptor->new(
 
 our $_NEXTREQUEST = Protobuf::Descriptor->new(
   name => 'NextRequest',
-  full_name => 'appengine_datastore_v3.NextRequest',
+  full_name => 'AppEngine::Service::Datastore::NextRequest',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -483,7 +482,7 @@ our $_NEXTREQUEST = Protobuf::Descriptor->new(
 
 our $_QUERYRESULT = Protobuf::Descriptor->new(
   name => 'QueryResult',
-  full_name => 'appengine_datastore_v3.QueryResult',
+  full_name => 'AppEngine::Service::Datastore::QueryResult',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -517,7 +516,7 @@ our $_QUERYRESULT = Protobuf::Descriptor->new(
 
 our $_SCHEMA = Protobuf::Descriptor->new(
   name => 'Schema',
-  full_name => 'appengine_datastore_v3.Schema',
+  full_name => 'AppEngine::Service::Datastore::Schema',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -539,7 +538,7 @@ our $_SCHEMA = Protobuf::Descriptor->new(
 
 our $_COMPOSITEINDICES = Protobuf::Descriptor->new(
   name => 'CompositeIndices',
-  full_name => 'appengine_datastore_v3.CompositeIndices',
+  full_name => 'AppEngine::Service::Datastore::CompositeIndices',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -619,3 +618,5 @@ Protobuf::Message->GenerateClass(__PACKAGE__ . '::CompositeIndices', $_COMPOSITE
 
 ## Fix foreign fields in extensions:
 ## Services:
+
+1;
