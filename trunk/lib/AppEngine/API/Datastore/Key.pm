@@ -21,6 +21,8 @@ sub from_path {
             push @path, @$arg;
         } elsif ($arg eq 'parent') {
             my $parent = shift;
+            next unless $parent;
+
             if (ref($parent) eq 'AppEngine::API::Datastore::Entity') {
                 $parent = $parent->key;
             } elsif (ref($parent) ne 'AppEngine::API::Datastore::Key') {
@@ -41,7 +43,9 @@ sub from_path {
         $element->set_type($path[$i]);
 
         if ($path[$i+1] =~ m/^\d/) {
-            $element->set_id($path[$i+1]);
+            # Don't set the ID if we were passed 0 - this way has_id_or_name
+            # will return false
+            $element->set_id($path[$i+1]) unless $path[$i+1] == 0;
         } else {
             $element->set_name($path[$i+1]);
         }
