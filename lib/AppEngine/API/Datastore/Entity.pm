@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use Carp;
+use AppEngine::API::Datastore;
 use AppEngine::API::Datastore::Key;
 use AppEngine::Service::Entity;
 
@@ -12,7 +13,7 @@ sub new {
     my ($pkg, $kind) = @_;
     croak 'kind not provided' unless $kind;
 
-    my $key;
+    my $key_name = 0;
     my $parent = undef;
     my %extra;
 
@@ -22,15 +23,18 @@ sub new {
             %extra = %$arg;
         } elsif ($arg eq 'parent') {
             $parent = shift;
-            # TODO(davidsansome)
         } elsif ($arg eq 'key_name') {
-            my $key_name = shift;
+            $key_name = shift;
+            next unless $key_name;
+
             croak 'key_name cannot begin with a number' if $key_name =~ m/^\d/;
-            $key = AppEngine::API::Datastore::Key::from_path([$kind, $key_name]);
         }
     }
 
-    $key ||= AppEngine::API::Datastore::Key::from_path([$kind, 0]);
+    my $key ||= AppEngine::API::Datastore::Key::from_path(
+        [$kind, $key_name],
+        parent => $parent,
+    );
 
     my $self = {
         __kind__     => $kind,
@@ -116,11 +120,11 @@ sub key {
 }
 
 sub put {
-    # TODO(davidsansome)
+    return AppEngine::API::Datastore::put($_[0]);
 }
 
 sub delete {
-    # TODO(davidsansome)
+    AppEngine::API::Datastore::delete($_[0]);
 }
 
 sub is_saved {
@@ -128,11 +132,12 @@ sub is_saved {
 }
 
 sub parent {
-    # TODO(davidsansome)
+    # TODO(davidsansome): maybe cache this?
+    return AppEngine::API::Datastore::get($_[0]->parent_key);
 }
 
 sub parent_key {
-    # TODO(davidsansome)
+    return $_[0]->key->parent;
 }
 
 
