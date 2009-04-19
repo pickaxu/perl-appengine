@@ -51,7 +51,7 @@ sub put {
     my $res_bytes = AppEngine::APIProxy::sync_call(SERVICE, 'Put', $req);
     $res->parse_from_string($res_bytes);
 
-    for (my $i=0 ; $i<$res->key_size ; $i++) {
+    for (my $i = 0 ; $i < $res->key_size ; $i ++) {
         my $key = AppEngine::API::Datastore::Key::_from_pb($res->keys->[$i]);
         $_[$i]->_set_saved($key);
     }
