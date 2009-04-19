@@ -6,57 +6,37 @@
 #
 
 use strict;
-use Data::Dumper;
+use warnings;
+
+use AppEngine::API::Datastore;
+use AppEngine::API::Datastore::Entity;
+use AppEngine::API::Datastore::Query;
 use AppEngine::APIProxy;
-use AppEngine::Service::Memcache;
-# for datastore:
-use AppEngine::Service::Base;
-use AppEngine::Service::Entity;
-use AppEngine::Service::Datastore;
-
-print "<h1>Hello!</h1>";
-print "You requested path: $ENV{PATH_INFO}\n";
-
-my ($req, $res, $item);
-
-$req = AppEngine::Service::Datastore::PutRequest->new;
-$res = AppEngine::Service::Datastore::PutResponse->new;
-
-my $entity = $req->add_entity;
-my $key_ref = $entity->key;
-$key_ref->set_app("my_app"); # required.  what is it?
-
-my $path = $key_ref->path;  # vivify it, but do nothing.
-my $element = $path->add_element;
-$element->set_type("type");
-$element->set_name("name");
-$element = $path->add_element;  # last element needs to have no id or name?
-$element->set_type("type");
-
-my $entity_group_path = $entity->entity_group; # vivify it, do nothing
-
+use CGI;
 use Data::Dumper;
-print "<pre>" . Dumper($req) . "</pre>";
 
-do_req("datastore_v3", "Put", $req, $res) or die;
+my $cgi = CGI->new;
 
-print "<h2>Response to put:</h2>";
-print "<pre>" . Dumper($res) . "</pre>";
+if ($ENV{REQUEST_METHOD} eq 'POST') {
+    my $greeting = AppEngine::API::Datastore::Entity->new('Greeting');
+    $greeting->{content} = $cgi->param('content');
 
-sub do_req {
-    my ($service, $method, $proto, $res) = @_;
-    my $res_bytes = eval {
-        AppEngine::APIProxy::sync_call($service, $method, $proto);
-    };
-    if ($@) {
-        print "<p><b>do_req error for svc=$service meth=$method</b>: error was: <pre>", Dumper($@), "</pre></p>";
-        return undef;
-    }
-    my $escaped = $res_bytes;
-    $escaped =~ s/([^\w])/"\\x" . sprintf("%02x", ord($1))/eg;
-    print "<p>$service $method response was success: $escaped.</p>";
-    my $parsed = eval { $res->parse_from_string($res_bytes); 1 };
-    return 1 if $parsed;
-    print "<p>Failed to parse_from_string: $@\n</p>";
-    return 0;
+    AppEngine::API::Datastore::put($greeting);
 }
+
+print '<html><body>';
+
+my $query = AppEngine::API::Datastore::Query->new('Greeting');
+while (my $greeting = $query->fetch) {
+    print 'An anonymous person wrote:';
+    # TODO(davidsansome): encode html entities
+    print '<blockquote>', $greeting->{content}, '</blockquote>';
+}
+
+print q(<form action="/" method="post">
+          <div><textarea name="content" rows="3" cols="60"></textarea></div>
+          <div><input type="submit" value="Sign Guestbook"></div>
+        </form>
+      </body>
+    </html>
+);
