@@ -18,7 +18,7 @@ sub from_path {
 
     my $p = $ref->path;
 
-    for (my $i=0 ; $i<@$path ; $i+=2) {
+    for (my $i = 0 ; $i < @$path ; $i += 2) {
         my $element = $p->add_element;
         $element->set_type($path->[$i]);
 
