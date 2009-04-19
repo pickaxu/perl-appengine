@@ -8,24 +8,42 @@ use AppEngine::Service::Entity;
 
 # TODO(davidsansome): parent parameter
 sub from_path {
-    my ($path) = @_;
-    croak 'arrayref expected for path'     unless ref($path) eq 'ARRAY';
-    croak 'path is empty'                  unless @$path;
-    croak 'odd number of elements in path' unless (@$path % 2) == 0;
-
     my $ref = AppEngine::Service::Entity::Reference->new;
     $ref->set_app($ENV{APPLICATION_ID});
 
+    my @path;
+
+    while (my $arg = shift) {
+        if (ref($arg) eq 'ARRAY') {
+            croak 'path is empty'                  unless @$arg;
+            croak 'odd number of elements in path' unless (@$arg % 2) == 0;
+
+            push @path, @$arg;
+        } elsif ($arg eq 'parent') {
+            my $parent = shift;
+            if (ref($parent) eq 'AppEngine::API::Datastore::Entity') {
+                $parent = $parent->key;
+            } elsif (ref($parent) ne 'AppEngine::API::Datastore::Key') {
+                croak 'expected Key or Entity for parent';
+            }
+
+            # Put the parent's path onto the beginning of this path
+            unshift @path, $parent->path;
+        }
+    }
+
+    croak 'path not provided' unless @path;
+
+    # Set the path on the protobuf
     my $p = $ref->path;
-
-    for (my $i = 0 ; $i < @$path ; $i += 2) {
+    for (my $i = 0 ; $i < @path ; $i += 2) {
         my $element = $p->add_element;
-        $element->set_type($path->[$i]);
+        $element->set_type($path[$i]);
 
-        if ($path->[$i+1] =~ m/^\d/) {
-            $element->set_id($path->[$i+1]);
+        if ($path[$i+1] =~ m/^\d/) {
+            $element->set_id($path[$i+1]);
         } else {
-            $element->set_name($path->[$i+1]);
+            $element->set_name($path[$i+1]);
         }
     }
 
@@ -76,6 +94,28 @@ sub has_id_or_name {
     return $_[0]->_last_element->has_id || $_[0]->_last_element->has_name;
 }
 
+sub path {
+    my $self = shift;
+
+    my @ret;
+    foreach my $element (@{$self->{_ref}->path->elements}) {
+        push @ret, $element->type, ($element->id || $element->name);
+    }
+
+    return @ret;
+}
+
+sub parent {
+    my $self = shift;
+    my @path = $self->path;
+
+    return if @path == 2; # No parent
+    pop @path;
+    pop @path;
+
+    return AppEngine::API::Datastore::Key::from_path(\@path);
+}
+
 sub _to_pb {
     my ($self, $pb) = @_;
 
@@ -87,7 +127,5 @@ sub _to_pb {
         $element_dest->set_name($element->name) if $element->has_name;
     }
 }
-
-# TODO(davidsansome): parent()
 
 1;
