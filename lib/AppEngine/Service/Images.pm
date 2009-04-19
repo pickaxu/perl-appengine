@@ -5,6 +5,8 @@ use strict;
 use warnings;
 use 5.6.1;
 use Protobuf;
+use Protobuf::Types;
+
 package AppEngine::Service::Images;
 
 package AppEngine::Service;
@@ -13,13 +15,12 @@ package AppEngine::Service;
 use constant TRUE => 1;
 use constant FALSE => 0;
 ## Top-level enums:
-
 ## Top-level extensions:
 
 ## All nested enums:
 our $_IMAGESSERVICEERROR_ERRORCODE = Protobuf::EnumDescriptor->new(
   name => 'ErrorCode',
-  full_name => 'appengine_api.ImagesServiceError.ErrorCode',
+  full_name => 'AppEngine::Service::ErrorCode',
   values => [
     Protobuf::EnumValueDescriptor->new(name => 'UNSPECIFIED_ERROR', index => 0, number => 1, type => undef),
     Protobuf::EnumValueDescriptor->new(name => 'BAD_TRANSFORM_DATA', index => 1, number => 2, type => undef),
@@ -35,7 +36,7 @@ $_IMAGESSERVICEERROR_ERRORCODE->values->[4]->set_type($_IMAGESSERVICEERROR_ERROR
 
 our $_IMAGESSERVICETRANSFORM_TYPE = Protobuf::EnumDescriptor->new(
   name => 'Type',
-  full_name => 'appengine_api.ImagesServiceTransform.Type',
+  full_name => 'AppEngine::Service::Type',
   values => [
     Protobuf::EnumValueDescriptor->new(name => 'RESIZE', index => 0, number => 1, type => undef),
     Protobuf::EnumValueDescriptor->new(name => 'ROTATE', index => 1, number => 2, type => undef),
@@ -53,7 +54,7 @@ $_IMAGESSERVICETRANSFORM_TYPE->values->[5]->set_type($_IMAGESSERVICETRANSFORM_TY
 
 our $_OUTPUTSETTINGS_MIME_TYPE = Protobuf::EnumDescriptor->new(
   name => 'MIME_TYPE',
-  full_name => 'appengine_api.OutputSettings.MIME_TYPE',
+  full_name => 'AppEngine::Service::MIME_TYPE',
   values => [
     Protobuf::EnumValueDescriptor->new(name => 'PNG', index => 0, number => 0, type => undef),
     Protobuf::EnumValueDescriptor->new(name => 'JPEG', index => 1, number => 1, type => undef),
@@ -65,7 +66,7 @@ $_OUTPUTSETTINGS_MIME_TYPE->values->[1]->set_type($_OUTPUTSETTINGS_MIME_TYPE);
 
 our $_IMAGESSERVICEERROR = Protobuf::Descriptor->new(
   name => 'ImagesServiceError',
-  full_name => 'appengine_api.ImagesServiceError',
+  full_name => 'AppEngine::Service::ImagesServiceError',
   containing_type => undef,
   fields => [
   ],
@@ -82,7 +83,7 @@ our $_IMAGESSERVICEERROR = Protobuf::Descriptor->new(
 
 our $_IMAGESSERVICETRANSFORM = Protobuf::Descriptor->new(
   name => 'ImagesServiceTransform',
-  full_name => 'appengine_api.ImagesServiceTransform',
+  full_name => 'AppEngine::Service::ImagesServiceTransform',
   containing_type => undef,
   fields => [
   ],
@@ -99,7 +100,7 @@ our $_IMAGESSERVICETRANSFORM = Protobuf::Descriptor->new(
 
 our $_TRANSFORM = Protobuf::Descriptor->new(
   name => 'Transform',
-  full_name => 'appengine_api.Transform',
+  full_name => 'AppEngine::Service::Transform',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -175,7 +176,7 @@ our $_TRANSFORM = Protobuf::Descriptor->new(
 
 our $_IMAGEDATA = Protobuf::Descriptor->new(
   name => 'ImageData',
-  full_name => 'appengine_api.ImageData',
+  full_name => 'AppEngine::Service::ImageData',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -197,7 +198,7 @@ our $_IMAGEDATA = Protobuf::Descriptor->new(
 
 our $_OUTPUTSETTINGS = Protobuf::Descriptor->new(
   name => 'OutputSettings',
-  full_name => 'appengine_api.OutputSettings',
+  full_name => 'AppEngine::Service::OutputSettings',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -220,7 +221,7 @@ our $_OUTPUTSETTINGS = Protobuf::Descriptor->new(
 
 our $_IMAGESTRANSFORMREQUEST = Protobuf::Descriptor->new(
   name => 'ImagesTransformRequest',
-  full_name => 'appengine_api.ImagesTransformRequest',
+  full_name => 'AppEngine::Service::ImagesTransformRequest',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -254,7 +255,7 @@ our $_IMAGESTRANSFORMREQUEST = Protobuf::Descriptor->new(
 
 our $_IMAGESTRANSFORMRESPONSE = Protobuf::Descriptor->new(
   name => 'ImagesTransformResponse',
-  full_name => 'appengine_api.ImagesTransformResponse',
+  full_name => 'AppEngine::Service::ImagesTransformResponse',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -299,3 +300,5 @@ Protobuf::Message->GenerateClass(__PACKAGE__ . '::ImagesTransformResponse', $_IM
 
 ## Fix foreign fields in extensions:
 ## Services:
+
+1;

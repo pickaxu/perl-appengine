@@ -5,6 +5,8 @@ use strict;
 use warnings;
 use 5.6.1;
 use Protobuf;
+use Protobuf::Types;
+
 package AppEngine::Service::Base;
 
 package AppEngine::Service;
@@ -13,7 +15,6 @@ package AppEngine::Service;
 use constant TRUE => 1;
 use constant FALSE => 0;
 ## Top-level enums:
-
 ## Top-level extensions:
 
 ## All nested enums:
@@ -21,7 +22,7 @@ use constant FALSE => 0;
 
 our $_STRINGPROTO = Protobuf::Descriptor->new(
   name => 'StringProto',
-  full_name => 'appengine_base.StringProto',
+  full_name => 'AppEngine::Service::StringProto',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -43,7 +44,7 @@ our $_STRINGPROTO = Protobuf::Descriptor->new(
 
 our $_INTEGER32PROTO = Protobuf::Descriptor->new(
   name => 'Integer32Proto',
-  full_name => 'appengine_base.Integer32Proto',
+  full_name => 'AppEngine::Service::Integer32Proto',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -65,13 +66,13 @@ our $_INTEGER32PROTO = Protobuf::Descriptor->new(
 
 our $_INTEGER64PROTO = Protobuf::Descriptor->new(
   name => 'Integer64Proto',
-  full_name => 'appengine_base.Integer64Proto',
+  full_name => 'AppEngine::Service::Integer64Proto',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
       name => 'value', index => 0, number => 1,
       type => 3, cpp_type => 2, label => 2,
-      default_value => 0,
+      default_value => Protobuf::Types::BI("0"),
       message_type => undef, enum_type => undef, containing_type => undef,
       is_extension => FALSE, extension_scope => undef),
   ],
@@ -87,7 +88,7 @@ our $_INTEGER64PROTO = Protobuf::Descriptor->new(
 
 our $_BOOLPROTO = Protobuf::Descriptor->new(
   name => 'BoolProto',
-  full_name => 'appengine_base.BoolProto',
+  full_name => 'AppEngine::Service::BoolProto',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -109,7 +110,7 @@ our $_BOOLPROTO = Protobuf::Descriptor->new(
 
 our $_DOUBLEPROTO = Protobuf::Descriptor->new(
   name => 'DoubleProto',
-  full_name => 'appengine_base.DoubleProto',
+  full_name => 'AppEngine::Service::DoubleProto',
   containing_type => undef,
   fields => [
     Protobuf::FieldDescriptor->new(
@@ -131,7 +132,7 @@ our $_DOUBLEPROTO = Protobuf::Descriptor->new(
 
 our $_VOIDPROTO = Protobuf::Descriptor->new(
   name => 'VoidProto',
-  full_name => 'appengine_base.VoidProto',
+  full_name => 'AppEngine::Service::VoidProto',
   containing_type => undef,
   fields => [
   ],
@@ -163,3 +164,5 @@ Protobuf::Message->GenerateClass(__PACKAGE__ . '::VoidProto', $_VOIDPROTO);
 
 ## Fix foreign fields in extensions:
 ## Services:
+
+1;
