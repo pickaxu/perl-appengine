@@ -53,6 +53,7 @@ sub _reload {
     }
 
     # TODO(davidsansome): More validation of runtime, api_version, etc.
+    $self->{app_name} = $config->{application};
 
     # Load handlers
     $self->{handlers} = [];
@@ -107,5 +108,14 @@ sub handler_for_path {
     }
 
     return;
+}
+
+# TODO(davidsansome): can we use Class::Accessor for these?
+sub app_name {
+    my ($self) = @_;
+
+    $self->_reload;
+
+    return $self->{app_name};
 }
 
