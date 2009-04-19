@@ -91,7 +91,8 @@ sub _make_request {
         method => $method,
         request => $pb_request, ];
 
-    print STDERR "Sending request: ", $req->as_string, "\n";
+    # TODO(davidsansome): re-enable this with a --debug option
+    # print STDERR "Sending request: ", $req->as_string, "\n";
     my $res = $ua->request($req);
 
     my $success = $res->is_success ? 1 : 0;
@@ -107,8 +108,8 @@ sub _make_request {
         $body = $res->status_line;
     }
 
-    print STDERR "Got apiproxy result (for $service, $method) of success=$success:\n";
-    print STDERR Dumper($body);
+    # print STDERR "Got apiproxy result (for $service, $method) of success=$success:\n";
+    # print STDERR Dumper($body);
 
     return ($success, $body);
 }
