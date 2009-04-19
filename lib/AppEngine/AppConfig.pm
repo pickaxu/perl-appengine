@@ -36,8 +36,7 @@ sub _reload {
     if ($self->{mtime} && $self->{mtime} == $mtime) {
         # Config hasn't changed since it was last read
         return;
-    }
-    elsif ($self->{mtime}) {
+    } elsif ($self->{mtime}) {
         warn "Reloading $filename\n";
     }
 
@@ -102,8 +101,7 @@ sub handler_for_path {
 
         if (exists $handler->{script}) {
             return ('script', canonpath($path));
-        }
-        elsif (exists $handler->{static_files}) {
+        } elsif (exists $handler->{static_files}) {
             return ('static', canonpath($path));
         }
     }
