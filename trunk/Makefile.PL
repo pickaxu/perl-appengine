@@ -8,5 +8,7 @@ WriteMakefile(
         'HTTP::Server::Simple' => 0,
         'LWP::UserAgent' => 0,
         'HTTP::Request::Common' => 0,
-    });
+    },
+    'test' => {TESTS => 't/*/*.t'},
+);
 
