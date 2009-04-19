@@ -111,14 +111,13 @@ sub _handle_script {
     die "Couldn't fork: $!" unless defined $app_pid;
     if ($app_pid) {
         close($client_socket);
+        close $app_apiproxy_fh;
+
         become_apiproxy_client($parent_apiproxy_fh);
         exit 0;
     }
 
-    open(my $devnull_fh, "+</dev/null") or die "no dev null";
-
-    # for now...
-    my $apiproxy_socket = $devnull_fh;
+    close $parent_apiproxy_fh;
 
     dup2(fileno($client_socket), 0) == 0 or die "dup2 of 0 failed: $!";
     dup2(fileno($client_socket), 1) == 1 or die "dup2 of 1 failed: $!";
