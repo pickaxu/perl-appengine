@@ -26,14 +26,14 @@ use warnings;
 
 use AppEngine::APIProxy qw(become_apiproxy_client);
 use AppEngine::AppConfig;
-use IO::Socket::INET;
+use Data::Dumper;
 use English;
 use Fcntl qw(F_GETFL F_SETFL FD_CLOEXEC);
 use File::Spec::Functions qw(catfile);
+use IO::Socket::INET;
+use IPC::Run 'start';
 use POSIX qw(dup2);
 use Socket;
-use IPC::Run 'start';
-use Data::Dumper;
 
 our $VERSION = "0.01";
 
