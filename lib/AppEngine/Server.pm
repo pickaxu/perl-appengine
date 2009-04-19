@@ -22,24 +22,30 @@ package AppEngine::Server;
 use base 'HTTP::Server::Simple::CGI';
 
 use strict;
+use warnings;
+
+use AppEngine::AppConfig;
 use IO::Socket::INET;
 use English;
 use Fcntl qw(F_GETFL F_SETFL FD_CLOEXEC);
+use File::Spec::Functions qw(catfile);
 use POSIX qw(dup2);
 use Socket;
 use IPC::Run 'start';
 use LWP::UserAgent;
 use HTTP::Request::Common;
 use Data::Dumper;
-use Getopt::Long;
 
 our $VERSION = "0.01";
 
 sub new {
     my $class = shift;
     my ($port, $app_dir) = @_;
+
     my $self  = $class->SUPER::new($port);
     $self->{pae_appdir} = $app_dir;
+    $self->{app_config} = AppEngine::AppConfig->new(catfile($app_dir, 'app.yaml'));
+
     return ($self);
 }
 
@@ -64,8 +70,35 @@ my $apiproxy_server = IO::Socket::INET->new(Listen => 10,
 
 
 sub handle_request {
-    my $self = shift;
-    my $cgi = shift;
+    my ($self, $cgi) = @_;
+
+    my $path = $cgi->path_info();
+    my ($type, $file) = $self->{app_config}->handler_for_path($path);
+
+    warn "Request for $path\n";
+
+    unless ($type) {
+        print "HTTP/1.0 404 Not found\r\n";
+        print "Content-Type: text/plain\r\n\r\n";
+        print "Not found error: $path did not match any patterns in application configuration.";
+        return;
+    }
+
+    if ($type eq 'script') {
+        $self->_handle_script($file);
+    }
+    elsif ($type eq 'static') {
+        $self->_handle_static($file);
+    }
+}
+
+sub _handle_static {
+    my ($self, $file) = @_;
+    # TODO(davidsansome)
+}
+
+sub _handle_script {
+    my ($self, $script) = @_;
     my $client_socket = $self->stdio_handle;
 
     # setup socketpair between the untrusted app and the parent
@@ -102,7 +135,7 @@ sub handle_request {
            "-I../protobuf-perl/perl/lib",  # Perl protobuf stuff
            "-I../protobuf-perl/perl/cpanlib",
            qw(-I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect),
-           "-I$appdir", "$appdir/app.pl"],
+           "-I$appdir", "$appdir/$script"],
         '<pipe', \*IN,
         '>pipe', \*OUT,
         '2>pipe', \*ERR or die "died with $?";
