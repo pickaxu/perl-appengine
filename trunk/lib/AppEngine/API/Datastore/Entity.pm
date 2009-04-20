@@ -81,8 +81,13 @@ sub _to_pb {
 
     $self->key->_to_pb($pb->key);
 
-    # TODO(davidsansome): get top-level element
-    $pb->entity_group;
+    my $group = $pb->entity_group;
+    if ($self->key->has_id_or_name) {
+        # I don't understand *why* we only set an entity group if we have an
+        # ID or name, but the python does it and datastore complains if we
+        # don't
+        $self->key->entity_group->_path_to_pb($group);
+    }
 
     # Add properties
     while ((my $key, my $value) = each %$self) {

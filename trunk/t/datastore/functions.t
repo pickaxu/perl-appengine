@@ -7,7 +7,7 @@ use AppEngine::API::Datastore;
 use AppEngine::API::Datastore::Entity;
 use AppEngine::APIProxy;
 use Data::Dumper;
-use Test::More tests => 9;
+use Test::More tests => 17;
 
 $AppEngine::APIProxy::bypass_client = 1;
 $ENV{APPLICATION_ID} = 'appid';
@@ -34,3 +34,31 @@ AppEngine::API::Datastore::delete($key);
 # Trying to get it again should return undef
 $entity = AppEngine::API::Datastore::get($key);
 ok(!$entity);
+
+
+# Test put and get with an entity with a name
+$entity = AppEngine::API::Datastore::Entity->new('test', key_name => 'wibble');
+$key = $entity->put;
+is($key->name, 'wibble');
+
+$entity = AppEngine::API::Datastore::get($key);
+is($entity->key->name, 'wibble');
+
+# Make a child of this entity
+my $child = AppEngine::API::Datastore::Entity->new('test', key_name => 'wobble', parent => $entity);
+my $child_key = $child->put;
+
+$child = AppEngine::API::Datastore::get($child_key);
+is($child->key->name, 'wobble');
+is($child->parent_key->name, 'wibble');
+is($child->parent->key->name, 'wibble');
+
+
+# Can we make a child without a name?
+$child = AppEngine::API::Datastore::Entity->new('test', parent => $entity);
+$child_key = $child->put;
+
+$child = AppEngine::API::Datastore::get($child_key);
+is($child->key->name, undef);
+is($child->parent_key->name, 'wibble');
+is($child->parent->key->name, 'wibble');
