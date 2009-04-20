@@ -7,7 +7,7 @@ use AppEngine::API::Datastore::Entity;
 use AppEngine::API::Datastore::Query;
 use AppEngine::APIProxy;
 use Data::Dumper;
-use Test::More tests => 28;
+use Test::More tests => 29;
 
 $AppEngine::APIProxy::bypass_client = 1;
 $ENV{APPLICATION_ID} = 'appid';
@@ -116,3 +116,9 @@ $q->order('age');
 is(scalar(@results), 2);
 is($results[0]->{name}, 'littlemoe');
 is($results[1]->{name}, 'moe');
+
+
+# Test count
+$q = AppEngine::API::Datastore::Query->new($kind);
+$q->filter('age <', 30);
+is($q->count, 2);
