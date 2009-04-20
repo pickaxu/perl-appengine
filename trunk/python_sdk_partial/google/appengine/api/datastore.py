@@ -31,6 +31,8 @@ which needs BadValueError, so it can't be defined in datastore.
 
 
 
+import heapq
+import itertools
 import logging
 import re
 import string
@@ -47,9 +49,11 @@ from google.appengine.datastore import datastore_pb
 from google.appengine.runtime import apiproxy_errors
 from google.appengine.datastore import entity_pb
 
-_LOCAL_APP_ID = datastore_types._LOCAL_APP_ID
+MAX_ALLOWABLE_QUERIES = 30
 
-TRANSACTION_RETRIES = 10
+DEFAULT_TRANSACTION_RETRIES = 3
+
+_MAX_INDEXED_PROPERTIES = 5000
 
 Key = datastore_types.Key
 typename = datastore_types.typename
@@ -139,21 +143,21 @@ def Put(entities):
   """
   entities, multiple = NormalizeAndTypeCheck(entities, Entity)
 
-  entity_group = entities[0].entity_group()
+  if multiple and not entities:
+    return []
+
   for entity in entities:
     if not entity.kind() or not entity.app():
       raise datastore_errors.BadRequestError(
           'App and kind must not be empty, in entity: %s' % entity)
-    elif entity.entity_group() != entity_group:
-      raise datastore_errors.BadRequestError(
-          'All entities must be in the same entity group.')
 
   req = datastore_pb.PutRequest()
   req.entity_list().extend([e._ToPb() for e in entities])
-  tx = _MaybeSetupTransaction(req, entities[0])
+
+  keys = [e.key() for e in entities]
+  tx = _MaybeSetupTransaction(req, keys)
   if tx:
-    tx.RecordModifiedKeys([e.key() for e in entities
-                           if e.key().has_id_or_name()])
+    tx.RecordModifiedKeys([k for k in keys if k.has_id_or_name()])
 
   resp = datastore_pb.PutResponse()
   try:
@@ -204,9 +208,11 @@ def Get(keys):
   """
   keys, multiple = NormalizeAndTypeCheckKeys(keys)
 
+  if multiple and not keys:
+    return []
   req = datastore_pb.GetRequest()
   req.key_list().extend([key._Key__reference for key in keys])
-  _MaybeSetupTransaction(req, keys[0])
+  _MaybeSetupTransaction(req, keys)
 
   resp = datastore_pb.GetResponse()
   try:
@@ -241,24 +247,21 @@ def Delete(keys):
     keys: Key or string or list of Keys or strings
 
   Raises:
-    TransactionFailedError, if the Put could not be committed.
+    TransactionFailedError, if the Delete could not be committed.
   """
-  keys, _ = NormalizeAndTypeCheckKeys(keys)
+  keys, multiple = NormalizeAndTypeCheckKeys(keys)
 
-  entity_group = keys[0].entity_group()
-  for key in keys:
-    if key.entity_group() != entity_group:
-      raise datastore_errors.BadRequestError(
-          'All keys must be in the same entity group.')
+  if multiple and not keys:
+    return
 
   req = datastore_pb.DeleteRequest()
   req.key_list().extend([key._Key__reference for key in keys])
 
-  tx = _MaybeSetupTransaction(req, keys[0])
+  tx = _MaybeSetupTransaction(req, keys)
   if tx:
     tx.RecordModifiedKeys(keys)
 
-  resp = api_base_pb.VoidProto()
+  resp = datastore_pb.DeleteResponse()
   try:
     apiproxy_stub_map.MakeSyncCall('datastore_v3', 'Delete', req, resp)
   except apiproxy_errors.ApplicationError, err:
@@ -286,21 +289,18 @@ class Entity(dict):
       name: string
     """
     ref = entity_pb.Reference()
-    if _app is not None:
-      datastore_types.ValidateString(_app, '_app',
-                                     datastore_errors.BadArgumentError)
-      ref.set_app(_app)
-    else:
-      ref.set_app(_LOCAL_APP_ID)
+    _app = datastore_types.ResolveAppId(_app)
+    ref.set_app(_app)
 
     datastore_types.ValidateString(kind, 'kind',
                                    datastore_errors.BadArgumentError)
 
     if parent is not None:
-      if _app is not None and _app != parent.app():
+      parent = _GetCompleteKeyOrError(parent)
+      if _app != parent.app():
         raise datastore_errors.BadArgumentError(
             "_app %s doesn't match parent's app %s" % (_app, parent.app()))
-      ref.CopyFrom(_GetCompleteKeyOrError(parent)._Key__reference)
+      ref.CopyFrom(parent._Key__reference)
 
     last_path = ref.mutable_path().add_element()
     last_path.set_type(kind.encode('utf-8'))
@@ -350,7 +350,7 @@ class Entity(dict):
     BadPropertyError. If the value is not a supported type, raises
     BadValueError.
     """
-    datastore_types.ToPropertyPb(name, value)
+    datastore_types.ValidateProperty(name, value)
     dict.__setitem__(self, name, value)
 
   def setdefault(self, name, value):
@@ -360,7 +360,7 @@ class Entity(dict):
     BadPropertyError. If the value is not a supported type, raises
     BadValueError.
     """
-    datastore_types.ToPropertyPb(name, value)
+    datastore_types.ValidateProperty(name, value)
     return dict.setdefault(self, name, value)
 
   def update(self, other):
@@ -492,10 +492,14 @@ class Entity(dict):
       if isinstance(sample, list):
         sample = values[0]
 
-      if isinstance(sample, (datastore_types.Blob, datastore_types.Text)):
+      if isinstance(sample, datastore_types._RAW_PROPERTY_TYPES):
         pb.raw_property_list().extend(properties)
       else:
         pb.property_list().extend(properties)
+
+    if pb.property_size() > _MAX_INDEXED_PROPERTIES:
+      raise datastore_errors.BadRequestError(
+          'Too many indexed properties for entity %r.' % self.key())
 
     return pb
 
@@ -525,35 +529,48 @@ class Entity(dict):
     else:
       assert last_path.has_name()
       assert last_path.name()
-    e = Entity(unicode(last_path.type().decode('utf-8')))
 
+    e = Entity(unicode(last_path.type().decode('utf-8')))
     ref = e.__key._Key__reference
     ref.CopyFrom(pb.key())
 
-    for prop_list in [pb.property_list(), pb.raw_property_list()]:
-      for prop in prop_list:
-        value = datastore_types.FromPropertyPb(prop)
+    temporary_values = {}
 
+    for prop_list in (pb.property_list(), pb.raw_property_list()):
+      for prop in prop_list:
         if not prop.has_multiple():
           raise datastore_errors.Error(
-            "Property %s is corrupt in the datastore; it's missing the "
-            'multiply valued field.' % name)
+            'Property %s is corrupt in the datastore; it\'s missing the '
+            'multiple valued field.' % prop.name())
 
-        if prop.multiple():
+        try:
+          value = datastore_types.FromPropertyPb(prop)
+        except (AssertionError, AttributeError, TypeError, ValueError), e:
+          raise datastore_errors.Error(
+            'Property %s is corrupt in the datastore. %s: %s' %
+            (e.__class__, prop.name(), e))
+
+        multiple = prop.multiple()
+        if multiple:
           value = [value]
-        name = unicode(prop.name().decode('utf-8'))
 
-        if not e.has_key(name):
-          e[name] = value
+        name = prop.name()
+        cur_value = temporary_values.get(name)
+        if cur_value is None:
+          temporary_values[name] = value
+        elif not multiple:
+          raise datastore_errors.Error(
+            'Property %s is corrupt in the datastore; it has multiple '
+            'values, but is not marked as multiply valued.' % name)
         else:
-          if not prop.multiple():
-            raise datastore_errors.Error(
-              'Property %s is corrupt in the datastore; it has multiple '
-              'values, but is not marked as multiply valued.' % name)
+          cur_value.extend(value)
 
-          cur_value = e[name]
-          assert isinstance(cur_value, list)
-          cur_value += value
+    for name, value in temporary_values.iteritems():
+      decoded_name = unicode(name.decode('utf-8'))
+
+      datastore_types.ValidateReadProperty(decoded_name, value)
+
+      dict.__setitem__(e, decoded_name, value)
 
     return e
 
@@ -655,7 +672,7 @@ class Query(dict):
     re.IGNORECASE | re.UNICODE)
 
   __kind = None
-  __app = _LOCAL_APP_ID
+  __app = None
   __orderings = None
   __cached_count = None
   __hint = None
@@ -687,10 +704,7 @@ class Query(dict):
     self.__filter_order = {}
     self.update(filters)
 
-    if _app is not None:
-      datastore_types.ValidateString(_app, '_app',
-                                     datastore_errors.BadArgumentError)
-      self.__app = _app
+    self.__app = datastore_types.ResolveAppId(_app)
 
   def Order(self, *orderings):
     """Specify how the query results should be sorted.
@@ -872,7 +886,7 @@ class Query(dict):
         _ToDatastoreError(err)
       except datastore_errors.NeedIndexError, exc:
         yaml = datastore_index.IndexYamlForQuery(
-          *datastore_index.CompositeIndexForQuery(pb)[:-1])
+          *datastore_index.CompositeIndexForQuery(pb)[1:-1])
         raise datastore_errors.NeedIndexError(
           str(exc) + '\nThis query needs this index:\n' + yaml)
 
@@ -932,9 +946,6 @@ class Query(dict):
     count is cached; successive Count() calls will not re-scan the datastore
     unless the query is changed.
 
-    Raises BadQueryError if the Query has more than one filter. Multiple
-    filters aren't supported yet.
-
     Args:
       limit, a number. If there are more results than this, stop short and
       just return this number. Providing this argument makes the count
@@ -969,7 +980,7 @@ class Query(dict):
     if isinstance(value, tuple):
       value = list(value)
 
-    datastore_types.ToPropertyPb(' ', value)
+    datastore_types.ValidateProperty(' ', value, read_only=True)
     match = self._CheckFilter(filter, value)
     property = match.group(1)
     operator = match.group(3)
@@ -996,7 +1007,7 @@ class Query(dict):
     BadPropertyError. If the value is not a supported type, raises
     BadValueError.
     """
-    datastore_types.ToPropertyPb(' ', value)
+    datastore_types.ValidateProperty(' ', value)
     self._CheckFilter(filter, value)
     self.__cached_count = None
     return dict.setdefault(self, filter, value)
@@ -1058,17 +1069,16 @@ class Query(dict):
 
     property = match.group(1)
     operator = match.group(3)
+    if operator is None:
+      operator = '='
 
     if isinstance(values, tuple):
       values = list(values)
     elif not isinstance(values, list):
       values = [values]
-    if isinstance(values[0], datastore_types.Blob):
+    if isinstance(values[0], datastore_types._RAW_PROPERTY_TYPES):
       raise datastore_errors.BadValueError(
-        'Filtering on Blob properties is not supported.')
-    if isinstance(values[0], datastore_types.Text):
-      raise datastore_errors.BadValueError(
-        'Filtering on Text properties is not supported.')
+        'Filtering on %s properties is not supported.' % typename(values[0]))
 
     if operator in self.INEQUALITY_OPERATORS:
       if self.__inequality_prop and property != self.__inequality_prop:
@@ -1080,6 +1090,14 @@ class Query(dict):
           'Inequality operators (%s) must be on the same property as the '
           'first sort order, if any sort orders are supplied' %
           ', '.join(self.INEQUALITY_OPERATORS))
+
+    if property in datastore_types._SPECIAL_PROPERTIES:
+      if property == datastore_types._KEY_SPECIAL_PROPERTY:
+        for value in values:
+          if not isinstance(value, Key):
+            raise datastore_errors.BadFilterError(
+              '%s filter value must be a Key; received %s (a %s)' %
+              (datastore_types._KEY_SPECIAL_PROPERTY, value, typename(value)))
 
     return match
 
@@ -1146,6 +1164,306 @@ class Query(dict):
       order.set_direction(direction)
 
     return pb
+
+
+class MultiQuery(Query):
+  """Class representing a query which requires multiple datastore queries.
+
+  This class is actually a subclass of datastore.Query as it is intended to act
+  like a normal Query object (supporting the same interface).
+  """
+
+  def __init__(self, bound_queries, orderings):
+    if len(bound_queries) > MAX_ALLOWABLE_QUERIES:
+      raise datastore_errors.BadArgumentError(
+          'Cannot satisfy query -- too many subqueries (max: %d, got %d).'
+          ' Probable cause: too many IN/!= filters in query.' %
+          (MAX_ALLOWABLE_QUERIES, len(bound_queries)))
+    self.__bound_queries = bound_queries
+    self.__orderings = orderings
+
+  def __str__(self):
+    res = 'MultiQuery: '
+    for query in self.__bound_queries:
+      res = '%s %s' % (res, str(query))
+    return res
+
+  def Get(self, limit, offset=0):
+    """Get results of the query with a limit on the number of results.
+
+    Args:
+      limit: maximum number of values to return.
+      offset: offset requested -- if nonzero, this will override the offset in
+              the original query
+
+    Returns:
+      A list of entities with at most "limit" entries (less if the query
+      completes before reading limit values).
+    """
+    count = 1
+    result = []
+
+    iterator = self.Run()
+
+    try:
+      for i in xrange(offset):
+        val = iterator.next()
+    except StopIteration:
+      pass
+
+    try:
+      while count <= limit:
+        val = iterator.next()
+        result.append(val)
+        count += 1
+    except StopIteration:
+      pass
+    return result
+
+  class SortOrderEntity(object):
+    """Allow entity comparisons using provided orderings.
+
+    The iterator passed to the constructor is eventually consumed via
+    calls to GetNext(), which generate new SortOrderEntity s with the
+    same orderings.
+    """
+
+    def __init__(self, entity_iterator, orderings):
+      """Ctor.
+
+      Args:
+        entity_iterator: an iterator of entities which will be wrapped.
+        orderings: an iterable of (identifier, order) pairs. order
+          should be either Query.ASCENDING or Query.DESCENDING.
+      """
+      self.__entity_iterator = entity_iterator
+      self.__entity = None
+      self.__min_max_value_cache = {}
+      try:
+        self.__entity = entity_iterator.next()
+      except StopIteration:
+        pass
+      else:
+        self.__orderings = orderings
+
+    def __str__(self):
+      return str(self.__entity)
+
+    def GetEntity(self):
+      """Gets the wrapped entity."""
+      return self.__entity
+
+    def GetNext(self):
+      """Wrap and return the next entity.
+
+      The entity is retrieved from the iterator given at construction time.
+      """
+      return MultiQuery.SortOrderEntity(self.__entity_iterator,
+                                        self.__orderings)
+
+    def CmpProperties(self, that):
+      """Compare two entities and return their relative order.
+
+      Compares self to that based on the current sort orderings and the
+      key orders between them. Returns negative, 0, or positive depending on
+      whether self is less, equal to, or greater than that. This
+      comparison returns as if all values were to be placed in ascending order
+      (highest value last).  Only uses the sort orderings to compare (ignores
+       keys).
+
+      Args:
+        that: SortOrderEntity
+
+      Returns:
+        Negative if self < that
+        Zero if self == that
+        Positive if self > that
+      """
+      if not self.__entity:
+        return cmp(self.__entity, that.__entity)
+
+      for (identifier, order) in self.__orderings:
+        value1 = self.__GetValueForId(self, identifier, order)
+        value2 = self.__GetValueForId(that, identifier, order)
+
+        result = cmp(value1, value2)
+        if order == Query.DESCENDING:
+          result = -result
+        if result:
+          return result
+      return 0
+
+    def __GetValueForId(self, sort_order_entity, identifier, sort_order):
+      value = sort_order_entity.__entity[identifier]
+      entity_key = sort_order_entity.__entity.key()
+      if (entity_key, identifier) in self.__min_max_value_cache:
+        value = self.__min_max_value_cache[(entity_key, identifier)]
+      elif isinstance(value, list):
+        if sort_order == Query.DESCENDING:
+          value = min(value)
+        else:
+          value = max(value)
+        self.__min_max_value_cache[(entity_key, identifier)] = value
+
+      return value
+
+    def __cmp__(self, that):
+      """Compare self to that w.r.t. values defined in the sort order.
+
+      Compare an entity with another, using sort-order first, then the key
+      order to break ties. This can be used in a heap to have faster min-value
+      lookup.
+
+      Args:
+        that: other entity to compare to
+      Returns:
+        negative: if self is less than that in sort order
+        zero: if self is equal to that in sort order
+        positive: if self is greater than that in sort order
+      """
+      property_compare = self.CmpProperties(that)
+      if property_compare:
+        return property_compare
+      else:
+        return cmp(self.__entity.key(), that.__entity.key())
+
+  def Run(self):
+    """Return an iterable output with all results in order."""
+    results = []
+    count = 1
+    log_level = logging.DEBUG - 1
+    for bound_query in self.__bound_queries:
+      logging.log(log_level, 'Running query #%i' % count)
+      results.append(bound_query.Run())
+      count += 1
+
+    def IterateResults(results):
+      """Iterator function to return all results in sorted order.
+
+      Iterate over the array of results, yielding the next element, in
+      sorted order. This function is destructive (results will be empty
+      when the operation is complete).
+
+      Args:
+        results: list of result iterators to merge and iterate through
+
+      Yields:
+        The next result in sorted order.
+      """
+      result_heap = []
+      for result in results:
+        heap_value = MultiQuery.SortOrderEntity(result, self.__orderings)
+        if heap_value.GetEntity():
+          heapq.heappush(result_heap, heap_value)
+
+      used_keys = set()
+
+      while result_heap:
+        top_result = heapq.heappop(result_heap)
+
+        results_to_push = []
+        if top_result.GetEntity().key() not in used_keys:
+          yield top_result.GetEntity()
+        else:
+          pass
+
+        used_keys.add(top_result.GetEntity().key())
+
+        results_to_push = []
+        while result_heap:
+          next = heapq.heappop(result_heap)
+          if cmp(top_result, next):
+            results_to_push.append(next)
+            break
+          else:
+            results_to_push.append(next.GetNext())
+        results_to_push.append(top_result.GetNext())
+
+        for popped_result in results_to_push:
+          if popped_result.GetEntity():
+            heapq.heappush(result_heap, popped_result)
+
+    return IterateResults(results)
+
+  def Count(self, limit=None):
+    """Return the number of matched entities for this query.
+
+    Will return the de-duplicated count of results.  Will call the more
+    efficient Get() function if a limit is given.
+
+    Args:
+      limit: maximum number of entries to count (for any result > limit, return
+      limit).
+    Returns:
+      count of the number of entries returned.
+    """
+    if limit is None:
+      count = 0
+      for i in self.Run():
+        count += 1
+      return count
+    else:
+      return len(self.Get(limit))
+
+  def __setitem__(self, query_filter, value):
+    """Add a new filter by setting it on all subqueries.
+
+    If any of the setting operations raise an exception, the ones
+    that succeeded are undone and the exception is propagated
+    upward.
+
+    Args:
+      query_filter: a string of the form "property operand".
+      value: the value that the given property is compared against.
+    """
+    saved_items = []
+    for index, query in enumerate(self.__bound_queries):
+      saved_items.append(query.get(query_filter, None))
+      try:
+        query[query_filter] = value
+      except:
+        for q, old_value in itertools.izip(self.__bound_queries[:index],
+                                           saved_items):
+          if old_value is not None:
+            q[query_filter] = old_value
+          else:
+            del q[query_filter]
+        raise
+
+  def __delitem__(self, query_filter):
+    """Delete a filter by deleting it from all subqueries.
+
+    If a KeyError is raised during the attempt, it is ignored, unless
+    every subquery raised a KeyError. If any other exception is
+    raised, any deletes will be rolled back.
+
+    Args:
+      query_filter: the filter to delete.
+
+    Raises:
+      KeyError: No subquery had an entry containing query_filter.
+    """
+    subquery_count = len(self.__bound_queries)
+    keyerror_count = 0
+    saved_items = []
+    for index, query in enumerate(self.__bound_queries):
+      try:
+        saved_items.append(query.get(query_filter, None))
+        del query[query_filter]
+      except KeyError:
+        keyerror_count += 1
+      except:
+        for q, old_value in itertools.izip(self.__bound_queries[:index],
+                                           saved_items):
+          if old_value is not None:
+            q[query_filter] = old_value
+        raise
+
+    if keyerror_count == subquery_count:
+      raise KeyError(query_filter)
+
+  def __iter__(self):
+    return iter(self.__bound_queries)
 
 
 class Iterator(object):
@@ -1272,7 +1590,8 @@ class _Transaction(object):
   If we've sent a BeginTransaction call, then handle will be a
   datastore_pb.Transaction that holds the transaction handle.
 
-  If we know the entity group for this transaction, it's stored in entity_group.
+  If we know the entity group for this transaction, it's stored in the
+  entity_group attribute, which is set by RecordModifiedKeys().
 
   modified_keys is a set containing the Keys of all entities modified (ie put
   or deleted) in this transaction. If an entity is modified more than once, a
@@ -1285,16 +1604,22 @@ class _Transaction(object):
     self.modified_keys = None
     self.modified_keys = set()
 
-  def RecordModifiedKeys(self, keys_or_entities, error_on_repeat=True):
+  def RecordModifiedKeys(self, keys, error_on_repeat=True):
     """Updates the modified keys seen so far.
 
-    If error_on_repeat is True and any of the given keys or entities have
-    already been modified, raises BadRequestError.
+    Also sets entity_group if it hasn't yet been set.
+
+    If error_on_repeat is True and any of the given keys have already been
+    modified, raises BadRequestError.
 
     Args:
-      keys: list of Key or Entity
+      keys: sequence of Keys
     """
-    keys, _ = NormalizeAndTypeCheckKeys(keys_or_entities)
+    keys, _ = NormalizeAndTypeCheckKeys(keys)
+
+    if keys and not self.entity_group:
+      self.entity_group = keys[0].entity_group()
+
     keys = set(keys)
 
     if error_on_repeat:
@@ -1307,8 +1632,29 @@ class _Transaction(object):
     self.modified_keys.update(keys)
 
 
-
 def RunInTransaction(function, *args, **kwargs):
+  """Runs a function inside a datastore transaction.
+
+     Runs the user-provided function inside transaction, retries default
+     number of times.
+
+    Args:
+    # a function to be run inside the transaction
+    function: callable
+    # positional arguments to pass to the function
+    args: variable number of any type
+
+  Returns:
+    the function's return value, if any
+
+  Raises:
+    TransactionFailedError, if the transaction could not be committed.
+  """
+  return RunInTransactionCustomRetries(
+      DEFAULT_TRANSACTION_RETRIES, function, *args, **kwargs)
+
+
+def RunInTransactionCustomRetries(retries, function, *args, **kwargs):
   """Runs a function inside a datastore transaction.
 
   Runs the user-provided function inside a full-featured, ACID datastore
@@ -1363,6 +1709,8 @@ def RunInTransaction(function, *args, **kwargs):
   Nested transactions are not supported.
 
   Args:
+    # number of retries
+    retries: integer
     # a function to be run inside the transaction
     function: callable
     # positional arguments to pass to the function
@@ -1379,6 +1727,10 @@ def RunInTransaction(function, *args, **kwargs):
     raise datastore_errors.BadRequestError(
       'Nested transactions are not supported.')
 
+  if retries < 0:
+    raise datastore_errors.BadRequestError(
+      'Number of retries should be non-negative number.')
+
   tx_key = None
 
   try:
@@ -1386,7 +1738,7 @@ def RunInTransaction(function, *args, **kwargs):
     tx = _Transaction()
     _txes[tx_key] = tx
 
-    for i in range(0, TRANSACTION_RETRIES + 1):
+    for i in range(0, retries + 1):
       tx.modified_keys.clear()
 
       try:
@@ -1412,17 +1764,19 @@ def RunInTransaction(function, *args, **kwargs):
 
       if tx.handle:
         try:
-          resp = api_base_pb.VoidProto()
+          resp = datastore_pb.CommitResponse()
           apiproxy_stub_map.MakeSyncCall('datastore_v3', 'Commit',
                                          tx.handle, resp)
         except apiproxy_errors.ApplicationError, err:
           if (err.application_error ==
               datastore_pb.Error.CONCURRENT_TRANSACTION):
             logging.warning('Transaction collision for entity group with '
-                            'key %r', tx.entity_group)
+                            'key %r. Retrying...', tx.entity_group)
             tx.handle = None
             tx.entity_group = None
             continue
+          else:
+            raise _ToDatastoreError(err)
 
       return result
 
@@ -1435,32 +1789,50 @@ def RunInTransaction(function, *args, **kwargs):
     del tx_key
 
 
-def _MaybeSetupTransaction(request, key_or_entity):
+def _MaybeSetupTransaction(request, keys):
   """Begins a transaction, if necessary, and populates it in the request.
 
-  If we're currently inside a transaction, this records the entity group (if
-  possible), creates the transaction PB, and sends the BeginTransaction. It
-  then populates the transaction handle in the request.
+  If we're currently inside a transaction, this records the entity group,
+  checks that the keys are all in that entity group, creates the transaction
+  PB, and sends the BeginTransaction. It then populates the transaction handle
+  in the request.
 
   Raises BadRequestError if the entity has a different entity group than the
   current transaction.
 
   Args:
     request: GetRequest, PutRequest, or DeleteRequest
-    key_or_entity: Key or Entity
+    keys: sequence of Keys
 
   Returns:
     _Transaction if we're inside a transaction, otherwise None
   """
   assert isinstance(request, (datastore_pb.GetRequest, datastore_pb.PutRequest,
                               datastore_pb.DeleteRequest))
-  assert isinstance(key_or_entity, (Key, Entity))
   tx_key = None
 
   try:
     tx_key = _CurrentTransactionKey()
     if tx_key:
       tx = _txes[tx_key]
+
+      groups = [k.entity_group() for k in keys]
+      if tx.entity_group:
+        expected_group = tx.entity_group
+      else:
+        expected_group = groups[0]
+      for group in groups:
+        if (group != expected_group or
+
+
+
+
+
+
+
+            (not group.has_id_or_name() and group is not expected_group)):
+          raise _DifferentEntityGroupError(expected_group, group)
+
       if not tx.handle:
         tx.handle = datastore_pb.Transaction()
         req = api_base_pb.VoidProto()
@@ -1468,14 +1840,6 @@ def _MaybeSetupTransaction(request, key_or_entity):
                                        tx.handle)
 
       request.mutable_transaction().CopyFrom(tx.handle)
-
-      this_group = key_or_entity.entity_group()
-      if not tx.entity_group:
-        if this_group.has_id_or_name():
-          tx.entity_group = this_group
-      else:
-        if tx.entity_group != this_group:
-          raise _DifferentEntityGroupError(tx.entity_group, this_group)
 
       return tx
 
@@ -1508,7 +1872,7 @@ def _FindTransactionFrameInStack():
   """Walks the stack to find a RunInTransaction() call.
 
   Returns:
-    # this is the RunInTransaction() frame record, if found
+    # this is the RunInTransactionCustomRetries() frame record, if found
     frame record or None
   """
   frame = sys._getframe()
@@ -1517,7 +1881,7 @@ def _FindTransactionFrameInStack():
   frame = frame.f_back.f_back
   while frame:
     if (frame.f_code.co_filename == filename and
-        frame.f_code.co_name == 'RunInTransaction'):
+        frame.f_code.co_name == 'RunInTransactionCustomRetries'):
       return frame
     frame = frame.f_back
 

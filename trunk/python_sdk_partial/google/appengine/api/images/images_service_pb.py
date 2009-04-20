@@ -41,6 +41,7 @@ class ImagesServiceError(ProtocolBuffer.ProtocolMessage):
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")
   ErrorCode_Name = classmethod(ErrorCode_Name)
 
+
   def __init__(self, contents=None):
     pass
     if contents is not None: self.MergeFromString(contents)
@@ -52,12 +53,6 @@ class ImagesServiceError(ProtocolBuffer.ProtocolMessage):
   def Equals(self, x):
     if x is self: return 1
     return 1
-
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
@@ -116,6 +111,7 @@ class ImagesServiceTransform(ProtocolBuffer.ProtocolMessage):
   def Type_Name(cls, x): return cls._Type_NAMES.get(x, "")
   Type_Name = classmethod(Type_Name)
 
+
   def __init__(self, contents=None):
     pass
     if contents is not None: self.MergeFromString(contents)
@@ -127,12 +123,6 @@ class ImagesServiceTransform(ProtocolBuffer.ProtocolMessage):
   def Equals(self, x):
     if x is self: return 1
     return 1
-
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
@@ -171,27 +161,28 @@ class ImagesServiceTransform(ProtocolBuffer.ProtocolMessage):
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
 class Transform(ProtocolBuffer.ProtocolMessage):
+  has_width_ = 0
+  width_ = 0
+  has_height_ = 0
+  height_ = 0
+  has_rotate_ = 0
+  rotate_ = 0
+  has_horizontal_flip_ = 0
+  horizontal_flip_ = 0
+  has_vertical_flip_ = 0
+  vertical_flip_ = 0
+  has_crop_left_x_ = 0
+  crop_left_x_ = 0.0
+  has_crop_top_y_ = 0
+  crop_top_y_ = 0.0
+  has_crop_right_x_ = 0
+  crop_right_x_ = 1.0
+  has_crop_bottom_y_ = 0
+  crop_bottom_y_ = 1.0
+  has_autolevels_ = 0
+  autolevels_ = 0
+
   def __init__(self, contents=None):
-    self.width_ = 0
-    self.height_ = 0
-    self.rotate_ = 0
-    self.horizontal_flip_ = 0
-    self.vertical_flip_ = 0
-    self.crop_left_x_ = 0.0
-    self.crop_top_y_ = 0.0
-    self.crop_right_x_ = 1.0
-    self.crop_bottom_y_ = 1.0
-    self.autolevels_ = 0
-    self.has_width_ = 0
-    self.has_height_ = 0
-    self.has_rotate_ = 0
-    self.has_horizontal_flip_ = 0
-    self.has_vertical_flip_ = 0
-    self.has_crop_left_x_ = 0
-    self.has_crop_top_y_ = 0
-    self.has_crop_right_x_ = 0
-    self.has_crop_bottom_y_ = 0
-    self.has_autolevels_ = 0
     if contents is not None: self.MergeFromString(contents)
 
   def width(self): return self.width_
@@ -201,8 +192,9 @@ class Transform(ProtocolBuffer.ProtocolMessage):
     self.width_ = x
 
   def clear_width(self):
-    self.has_width_ = 0
-    self.width_ = 0
+    if self.has_width_:
+      self.has_width_ = 0
+      self.width_ = 0
 
   def has_width(self): return self.has_width_
 
@@ -213,8 +205,9 @@ class Transform(ProtocolBuffer.ProtocolMessage):
     self.height_ = x
 
   def clear_height(self):
-    self.has_height_ = 0
-    self.height_ = 0
+    if self.has_height_:
+      self.has_height_ = 0
+      self.height_ = 0
 
   def has_height(self): return self.has_height_
 
@@ -225,8 +218,9 @@ class Transform(ProtocolBuffer.ProtocolMessage):
     self.rotate_ = x
 
   def clear_rotate(self):
-    self.has_rotate_ = 0
-    self.rotate_ = 0
+    if self.has_rotate_:
+      self.has_rotate_ = 0
+      self.rotate_ = 0
 
   def has_rotate(self): return self.has_rotate_
 
@@ -237,8 +231,9 @@ class Transform(ProtocolBuffer.ProtocolMessage):
     self.horizontal_flip_ = x
 
   def clear_horizontal_flip(self):
-    self.has_horizontal_flip_ = 0
-    self.horizontal_flip_ = 0
+    if self.has_horizontal_flip_:
+      self.has_horizontal_flip_ = 0
+      self.horizontal_flip_ = 0
 
   def has_horizontal_flip(self): return self.has_horizontal_flip_
 
@@ -249,8 +244,9 @@ class Transform(ProtocolBuffer.ProtocolMessage):
     self.vertical_flip_ = x
 
   def clear_vertical_flip(self):
-    self.has_vertical_flip_ = 0
-    self.vertical_flip_ = 0
+    if self.has_vertical_flip_:
+      self.has_vertical_flip_ = 0
+      self.vertical_flip_ = 0
 
   def has_vertical_flip(self): return self.has_vertical_flip_
 
@@ -261,8 +257,9 @@ class Transform(ProtocolBuffer.ProtocolMessage):
     self.crop_left_x_ = x
 
   def clear_crop_left_x(self):
-    self.has_crop_left_x_ = 0
-    self.crop_left_x_ = 0.0
+    if self.has_crop_left_x_:
+      self.has_crop_left_x_ = 0
+      self.crop_left_x_ = 0.0
 
   def has_crop_left_x(self): return self.has_crop_left_x_
 
@@ -273,8 +270,9 @@ class Transform(ProtocolBuffer.ProtocolMessage):
     self.crop_top_y_ = x
 
   def clear_crop_top_y(self):
-    self.has_crop_top_y_ = 0
-    self.crop_top_y_ = 0.0
+    if self.has_crop_top_y_:
+      self.has_crop_top_y_ = 0
+      self.crop_top_y_ = 0.0
 
   def has_crop_top_y(self): return self.has_crop_top_y_
 
@@ -285,8 +283,9 @@ class Transform(ProtocolBuffer.ProtocolMessage):
     self.crop_right_x_ = x
 
   def clear_crop_right_x(self):
-    self.has_crop_right_x_ = 0
-    self.crop_right_x_ = 1.0
+    if self.has_crop_right_x_:
+      self.has_crop_right_x_ = 0
+      self.crop_right_x_ = 1.0
 
   def has_crop_right_x(self): return self.has_crop_right_x_
 
@@ -297,8 +296,9 @@ class Transform(ProtocolBuffer.ProtocolMessage):
     self.crop_bottom_y_ = x
 
   def clear_crop_bottom_y(self):
-    self.has_crop_bottom_y_ = 0
-    self.crop_bottom_y_ = 1.0
+    if self.has_crop_bottom_y_:
+      self.has_crop_bottom_y_ = 0
+      self.crop_bottom_y_ = 1.0
 
   def has_crop_bottom_y(self): return self.has_crop_bottom_y_
 
@@ -309,8 +309,9 @@ class Transform(ProtocolBuffer.ProtocolMessage):
     self.autolevels_ = x
 
   def clear_autolevels(self):
-    self.has_autolevels_ = 0
-    self.autolevels_ = 0
+    if self.has_autolevels_:
+      self.has_autolevels_ = 0
+      self.autolevels_ = 0
 
   def has_autolevels(self): return self.has_autolevels_
 
@@ -351,12 +352,6 @@ class Transform(ProtocolBuffer.ProtocolMessage):
     if self.has_autolevels_ != x.has_autolevels_: return 0
     if self.has_autolevels_ and self.autolevels_ != x.autolevels_: return 0
     return 1
-
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
@@ -523,9 +518,10 @@ class Transform(ProtocolBuffer.ProtocolMessage):
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
 class ImageData(ProtocolBuffer.ProtocolMessage):
+  has_content_ = 0
+  content_ = ""
+
   def __init__(self, contents=None):
-    self.content_ = ""
-    self.has_content_ = 0
     if contents is not None: self.MergeFromString(contents)
 
   def content(self): return self.content_
@@ -535,8 +531,9 @@ class ImageData(ProtocolBuffer.ProtocolMessage):
     self.content_ = x
 
   def clear_content(self):
-    self.has_content_ = 0
-    self.content_ = ""
+    if self.has_content_:
+      self.has_content_ = 0
+      self.content_ = ""
 
   def has_content(self): return self.has_content_
 
@@ -550,12 +547,6 @@ class ImageData(ProtocolBuffer.ProtocolMessage):
     if self.has_content_ != x.has_content_: return 0
     if self.has_content_ and self.content_ != x.content_: return 0
     return 1
-
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
@@ -620,9 +611,10 @@ class OutputSettings(ProtocolBuffer.ProtocolMessage):
   def MIME_TYPE_Name(cls, x): return cls._MIME_TYPE_NAMES.get(x, "")
   MIME_TYPE_Name = classmethod(MIME_TYPE_Name)
 
+  has_mime_type_ = 0
+  mime_type_ = 0
+
   def __init__(self, contents=None):
-    self.mime_type_ = 0
-    self.has_mime_type_ = 0
     if contents is not None: self.MergeFromString(contents)
 
   def mime_type(self): return self.mime_type_
@@ -632,8 +624,9 @@ class OutputSettings(ProtocolBuffer.ProtocolMessage):
     self.mime_type_ = x
 
   def clear_mime_type(self):
-    self.has_mime_type_ = 0
-    self.mime_type_ = 0
+    if self.has_mime_type_:
+      self.has_mime_type_ = 0
+      self.mime_type_ = 0
 
   def has_mime_type(self): return self.has_mime_type_
 
@@ -647,12 +640,6 @@ class OutputSettings(ProtocolBuffer.ProtocolMessage):
     if self.has_mime_type_ != x.has_mime_type_: return 0
     if self.has_mime_type_ and self.mime_type_ != x.mime_type_: return 0
     return 1
-
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
@@ -702,12 +689,13 @@ class OutputSettings(ProtocolBuffer.ProtocolMessage):
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
 class ImagesTransformRequest(ProtocolBuffer.ProtocolMessage):
+  has_image_ = 0
+  has_output_ = 0
+
   def __init__(self, contents=None):
     self.image_ = ImageData()
     self.transform_ = []
     self.output_ = OutputSettings()
-    self.has_image_ = 0
-    self.has_output_ = 0
     if contents is not None: self.MergeFromString(contents)
 
   def image(self): return self.image_
@@ -760,12 +748,6 @@ class ImagesTransformRequest(ProtocolBuffer.ProtocolMessage):
     if self.has_output_ and self.output_ != x.output_: return 0
     return 1
 
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
-
   def IsInitialized(self, debug_strs=None):
     initialized = 1
     if (not self.has_image_):
@@ -773,8 +755,8 @@ class ImagesTransformRequest(ProtocolBuffer.ProtocolMessage):
       if debug_strs is not None:
         debug_strs.append('Required field: image not set.')
     elif not self.image_.IsInitialized(debug_strs): initialized = 0
-    for i in xrange(len(self.transform_)):
-      if (not self.transform_[i].IsInitialized(debug_strs)): initialized=0
+    for p in self.transform_:
+      if not p.IsInitialized(debug_strs): initialized=0
     if (not self.has_output_):
       initialized = 0
       if debug_strs is not None:
@@ -876,9 +858,10 @@ class ImagesTransformRequest(ProtocolBuffer.ProtocolMessage):
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
 class ImagesTransformResponse(ProtocolBuffer.ProtocolMessage):
+  has_image_ = 0
+
   def __init__(self, contents=None):
     self.image_ = ImageData()
-    self.has_image_ = 0
     if contents is not None: self.MergeFromString(contents)
 
   def image(self): return self.image_
@@ -899,12 +882,6 @@ class ImagesTransformResponse(ProtocolBuffer.ProtocolMessage):
     if self.has_image_ != x.has_image_: return 0
     if self.has_image_ and self.image_ != x.image_: return 0
     return 1
-
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1

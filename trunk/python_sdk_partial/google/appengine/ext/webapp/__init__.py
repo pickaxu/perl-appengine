@@ -70,6 +70,7 @@ import wsgiref.headers
 import wsgiref.util
 
 RE_FIND_GROUPS = re.compile('\(.*?\)')
+_CHARSET_RE = re.compile(r';\s*charset=([^;\s]*)', re.I)
 
 class Error(Exception):
   """Base of all exceptions in the webapp module."""
@@ -107,8 +108,10 @@ class Request(webob.Request):
     Args:
       environ: A WSGI-compliant environment dictionary.
     """
-    charset = webob.NoDefault
-    if environ.get('CONTENT_TYPE', '').find('charset') == -1:
+    match = _CHARSET_RE.search(environ.get('CONTENT_TYPE', ''))
+    if match:
+      charset = match.group(1).lower()
+    else:
       charset = 'utf-8'
 
     webob.Request.__init__(self, environ, charset=charset,
@@ -154,12 +157,9 @@ class Request(webob.Request):
     if self.charset:
       argument_name = argument_name.encode(self.charset)
 
-    try:
-      param_value = self.params.getall(argument_name)
-    except KeyError:
-      return default_value
+    param_value = self.params.getall(argument_name)
 
-    for i in range(len(param_value)):
+    for i in xrange(len(param_value)):
       if isinstance(param_value[i], cgi.FieldStorage):
         param_value[i] = param_value[i].value
 
@@ -379,12 +379,11 @@ class RequestHandler(object):
       debug_mode: True if the web application is running in debug mode
     """
     self.error(500)
-    lines = ''.join(traceback.format_exception(*sys.exc_info()))
-    logging.error(lines)
+    logging.exception(exception)
     if debug_mode:
+      lines = ''.join(traceback.format_exception(*sys.exc_info()))
       self.response.clear()
-      self.response.headers['Content-Type'] = 'text/plain'
-      self.response.out.write(lines)
+      self.response.out.write('<pre>%s</pre>' % (cgi.escape(lines, quote=True)))
 
   @classmethod
   def get_url(cls, *args, **kargs):

@@ -42,6 +42,7 @@ class MailServiceError(ProtocolBuffer.ProtocolMessage):
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")
   ErrorCode_Name = classmethod(ErrorCode_Name)
 
+
   def __init__(self, contents=None):
     pass
     if contents is not None: self.MergeFromString(contents)
@@ -53,12 +54,6 @@ class MailServiceError(ProtocolBuffer.ProtocolMessage):
   def Equals(self, x):
     if x is self: return 1
     return 1
-
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
@@ -97,11 +92,12 @@ class MailServiceError(ProtocolBuffer.ProtocolMessage):
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
 class MailAttachment(ProtocolBuffer.ProtocolMessage):
+  has_filename_ = 0
+  filename_ = ""
+  has_data_ = 0
+  data_ = ""
+
   def __init__(self, contents=None):
-    self.filename_ = ""
-    self.data_ = ""
-    self.has_filename_ = 0
-    self.has_data_ = 0
     if contents is not None: self.MergeFromString(contents)
 
   def filename(self): return self.filename_
@@ -111,8 +107,9 @@ class MailAttachment(ProtocolBuffer.ProtocolMessage):
     self.filename_ = x
 
   def clear_filename(self):
-    self.has_filename_ = 0
-    self.filename_ = ""
+    if self.has_filename_:
+      self.has_filename_ = 0
+      self.filename_ = ""
 
   def has_filename(self): return self.has_filename_
 
@@ -123,8 +120,9 @@ class MailAttachment(ProtocolBuffer.ProtocolMessage):
     self.data_ = x
 
   def clear_data(self):
-    self.has_data_ = 0
-    self.data_ = ""
+    if self.has_data_:
+      self.has_data_ = 0
+      self.data_ = ""
 
   def has_data(self): return self.has_data_
 
@@ -141,12 +139,6 @@ class MailAttachment(ProtocolBuffer.ProtocolMessage):
     if self.has_data_ != x.has_data_: return 0
     if self.has_data_ and self.data_ != x.data_: return 0
     return 1
-
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
@@ -215,21 +207,22 @@ class MailAttachment(ProtocolBuffer.ProtocolMessage):
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
 class MailMessage(ProtocolBuffer.ProtocolMessage):
+  has_sender_ = 0
+  sender_ = ""
+  has_replyto_ = 0
+  replyto_ = ""
+  has_subject_ = 0
+  subject_ = ""
+  has_textbody_ = 0
+  textbody_ = ""
+  has_htmlbody_ = 0
+  htmlbody_ = ""
+
   def __init__(self, contents=None):
-    self.sender_ = ""
-    self.replyto_ = ""
     self.to_ = []
     self.cc_ = []
     self.bcc_ = []
-    self.subject_ = ""
-    self.textbody_ = ""
-    self.htmlbody_ = ""
     self.attachment_ = []
-    self.has_sender_ = 0
-    self.has_replyto_ = 0
-    self.has_subject_ = 0
-    self.has_textbody_ = 0
-    self.has_htmlbody_ = 0
     if contents is not None: self.MergeFromString(contents)
 
   def sender(self): return self.sender_
@@ -239,8 +232,9 @@ class MailMessage(ProtocolBuffer.ProtocolMessage):
     self.sender_ = x
 
   def clear_sender(self):
-    self.has_sender_ = 0
-    self.sender_ = ""
+    if self.has_sender_:
+      self.has_sender_ = 0
+      self.sender_ = ""
 
   def has_sender(self): return self.has_sender_
 
@@ -251,8 +245,9 @@ class MailMessage(ProtocolBuffer.ProtocolMessage):
     self.replyto_ = x
 
   def clear_replyto(self):
-    self.has_replyto_ = 0
-    self.replyto_ = ""
+    if self.has_replyto_:
+      self.has_replyto_ = 0
+      self.replyto_ = ""
 
   def has_replyto(self): return self.has_replyto_
 
@@ -308,8 +303,9 @@ class MailMessage(ProtocolBuffer.ProtocolMessage):
     self.subject_ = x
 
   def clear_subject(self):
-    self.has_subject_ = 0
-    self.subject_ = ""
+    if self.has_subject_:
+      self.has_subject_ = 0
+      self.subject_ = ""
 
   def has_subject(self): return self.has_subject_
 
@@ -320,8 +316,9 @@ class MailMessage(ProtocolBuffer.ProtocolMessage):
     self.textbody_ = x
 
   def clear_textbody(self):
-    self.has_textbody_ = 0
-    self.textbody_ = ""
+    if self.has_textbody_:
+      self.has_textbody_ = 0
+      self.textbody_ = ""
 
   def has_textbody(self): return self.has_textbody_
 
@@ -332,8 +329,9 @@ class MailMessage(ProtocolBuffer.ProtocolMessage):
     self.htmlbody_ = x
 
   def clear_htmlbody(self):
-    self.has_htmlbody_ = 0
-    self.htmlbody_ = ""
+    if self.has_htmlbody_:
+      self.has_htmlbody_ = 0
+      self.htmlbody_ = ""
 
   def has_htmlbody(self): return self.has_htmlbody_
 
@@ -392,12 +390,6 @@ class MailMessage(ProtocolBuffer.ProtocolMessage):
       if e1 != e2: return 0
     return 1
 
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
-
   def IsInitialized(self, debug_strs=None):
     initialized = 1
     if (not self.has_sender_):
@@ -408,8 +400,8 @@ class MailMessage(ProtocolBuffer.ProtocolMessage):
       initialized = 0
       if debug_strs is not None:
         debug_strs.append('Required field: subject not set.')
-    for i in xrange(len(self.attachment_)):
-      if (not self.attachment_[i].IsInitialized(debug_strs)): initialized=0
+    for p in self.attachment_:
+      if not p.IsInitialized(debug_strs): initialized=0
     return initialized
 
   def ByteSize(self):
