@@ -39,6 +39,19 @@ sub set_offset {
     $_[0]->{_pb}->set_offset($_[1]);
 }
 
+sub order {
+    my ($self, $property) = @_;
+    croak 'expected name of property to order by' unless defined($property);
+
+    my $descending = $property =~ s/^-//;
+
+    my $order = $self->{_pb}->add_order;
+    $order->set_property($property);
+
+    # TODO(davidsansome): how to use the enum name from the protobuf?
+    $order->set_direction(2) if $descending;
+}
+
 sub _execute {
     my $self = shift;
 
