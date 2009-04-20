@@ -7,7 +7,7 @@ use AppEngine::API::Datastore::Entity;
 use AppEngine::API::Datastore::Query;
 use AppEngine::APIProxy;
 use Data::Dumper;
-use Test::More tests => 29;
+use Test::More tests => 31;
 
 $AppEngine::APIProxy::bypass_client = 1;
 $ENV{APPLICATION_ID} = 'appid';
@@ -99,6 +99,14 @@ $q->filter('age <', 25);
 
 is(scalar(@results), 1);
 is($results[0]->{name}, 'bob');
+
+# Not specifying an operator should use =
+$q = AppEngine::API::Datastore::Query->new($kind);
+$q->filter('age', 42);
+@results = run_query($q);
+
+is(scalar(@results), 1);
+is($results[0]->{name}, 'larry');
 
 
 # Give moe a child
