@@ -79,6 +79,21 @@ sub filter {
     AppEngine::API::Datastore::Entity::_property_to_pb($filter->add_property, $property, $value);
 }
 
+sub ancestor {
+    my ($self, $ancestor) = @_;
+    croak 'missing ancestor' unless $ancestor;
+
+    my $type = ref($ancestor);
+
+    if ($type eq 'AppEngine::API::Datastore::Entity') {
+        $ancestor = $ancestor->key;
+    } elsif ($type ne 'AppEngine::API::Datastore::Key') {
+        croak 'expected Key or Entity, got ' . $type;
+    }
+
+    $ancestor->_to_pb($self->{_pb}->ancestor);
+}
+
 sub _execute {
     my $self = shift;
 
