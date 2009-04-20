@@ -144,7 +144,7 @@ Example:
 
 =cut
 
-my $filter_re_str = '^([^\s]+)\s+(' . join('|', keys %{OPERATORS()}) . ')\s*$';
+my $filter_re_str = '^([^\s]+)(?:\s+(' . join('|', keys %{OPERATORS()}) . '))?\s*$';
 my $filter_re = qr/$filter_re_str/;
 
 sub filter {
@@ -155,7 +155,8 @@ sub filter {
     # TODO(davidsansome): support for !=
     # The python SDK does this by running two queries - one for < and one for >
 
-    my ($property, $operator) = ($1, $2);
+    my $property = $1;
+    my $operator = $2 || '=';
 
     my $filter = $self->{_pb}->add_filter;
     $filter->set_op(OPERATORS->{$operator});
