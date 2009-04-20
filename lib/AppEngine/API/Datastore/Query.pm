@@ -8,7 +8,15 @@ use AppEngine::Service::Datastore;
 use Carp;
 use Data::Dumper;
 
-use constant SERVICE => 'datastore_v3';
+use constant SERVICE   => 'datastore_v3';
+use constant OPERATORS => {
+    '<'  => 1,
+    '<=' => 2,
+    '>'  => 3,
+    '>=' => 4,
+    '='  => 5,
+    'IN' => 6,
+};
 
 our $DEFAULT_BUFFER_SIZE = 20;
 
@@ -50,6 +58,25 @@ sub order {
 
     # TODO(davidsansome): how to use the enum name from the protobuf?
     $order->set_direction(2) if $descending;
+}
+
+my $filter_re_str = '^([^\s]+)\s+(' . join('|', keys %{OPERATORS()}) . ')\s*$';
+my $filter_re = qr/$filter_re_str/;
+
+sub filter {
+    my ($self, $property_operator, $value) = @_;
+    $property_operator =~ $filter_re
+        or croak 'invalid property/operator: ' . $property_operator;
+
+    # TODO(davidsansome): support for !=
+    # The python SDK does this by running two queries - one for < and one for >
+
+    my ($property, $operator) = ($1, $2);
+
+    my $filter = $self->{_pb}->add_filter;
+    $filter->set_op(OPERATORS->{$operator});
+
+    AppEngine::API::Datastore::Entity::_property_to_pb($filter->add_property, $property, $value);
 }
 
 sub _execute {
