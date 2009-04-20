@@ -3,8 +3,8 @@ package AppEngine::API::Datastore::Key;
 use strict;
 use warnings;
 
-use Carp;
 use AppEngine::Service::Entity;
+use Carp;
 
 # TODO(davidsansome): parent parameter
 sub from_path {
@@ -83,15 +83,19 @@ sub kind {
 }
 
 sub name {
-    return $_[0]->_last_element->name;
+    my $e = $_[0]->_last_element;
+    return $e->name if $e->has_name;
+    return;
 }
 
 sub id {
-    return $_[0]->_last_element->id;
+    my $e = $_[0]->_last_element;
+    return $e->id if $e->has_id;
+    return;
 }
 
 sub id_or_name {
-    return $_[0]->_last_element->id || $_[0]->_last_element->name;
+    return $_[0]->id || $_[0]->name;
 }
 
 sub has_id_or_name {
@@ -103,7 +107,13 @@ sub path {
 
     my @ret;
     foreach my $element (@{$self->{_ref}->path->elements}) {
-        push @ret, $element->type, ($element->id || $element->name);
+        if ($element->has_id) {
+            push @ret, $element->type, $element->id;
+        } elsif ($element->has_name) {
+            push @ret, $element->type, $element->name;
+        } else {
+            push @ret, $element->type, 0;
+        }
     }
 
     return @ret;
@@ -120,14 +130,27 @@ sub parent {
     return AppEngine::API::Datastore::Key::from_path(\@path);
 }
 
+sub entity_group {
+    my $self = shift;
+    my @path = $self->path;
+
+    return AppEngine::API::Datastore::Key::from_path([@path[0, 1]]);
+}
+
 sub _to_pb {
     my ($self, $pb) = @_;
 
     $pb->set_app($self->app);
+    $self->_path_to_pb($pb->path);
+}
+
+sub _path_to_pb {
+    my ($self, $pb) = @_;
+
     foreach my $element (@{$self->{_ref}->path->elements}) {
-        my $element_dest = $pb->path->add_element;
+        my $element_dest = $pb->add_element;
         $element_dest->set_type($element->type) if $element->has_type;
-        $element_dest->set_id($element->id) if $element->has_id;
+        $element_dest->set_id($element->id)     if $element->has_id;
         $element_dest->set_name($element->name) if $element->has_name;
     }
 }
