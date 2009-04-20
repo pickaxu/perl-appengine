@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use AppEngine::API::Datastore::Entity;
+use AppEngine::Service::Base;
 use AppEngine::Service::Datastore;
 use Carp;
 use Data::Dumper;
@@ -92,6 +93,16 @@ sub ancestor {
     }
 
     $ancestor->_to_pb($self->{_pb}->ancestor);
+}
+
+sub count {
+    my $self = shift;
+
+    my $res_bytes = AppEngine::APIProxy::sync_call(SERVICE, 'Count', $self->{_pb});
+    my $res = AppEngine::Service::Integer32Proto->new;
+    $res->parse_from_string($res_bytes);
+
+    return $res->value;
 }
 
 sub _execute {
