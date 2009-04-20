@@ -22,36 +22,31 @@
 import logging
 import StringIO
 
-import PIL
-from PIL import _imaging
-from PIL import Image
+try:
+  import PIL
+  from PIL import _imaging
+  from PIL import Image
+except ImportError:
+  import _imaging
+  import Image
 
+from google.appengine.api import apiproxy_stub
 from google.appengine.api import images
 from google.appengine.api.images import images_service_pb
 from google.appengine.runtime import apiproxy_errors
 
 
-class ImagesServiceStub(object):
+class ImagesServiceStub(apiproxy_stub.APIProxyStub):
   """Stub version of images API to be used with the dev_appserver."""
 
-  def __init__(self):
-    """Preloads PIL to load all modules in the unhardened environment."""
-    Image.init()
-
-  def MakeSyncCall(self, service, call, request, response):
-    """Main entry point.
+  def __init__(self, service_name='images'):
+    """Preloads PIL to load all modules in the unhardened environment.
 
     Args:
-      service: str, must be 'images'.
-      call: str, name of the RPC to make, must be part of ImagesService.
-      request: pb object, corresponding args to the 'call' argument.
-      response: pb object, return value for the 'call' argument.
+      service_name: Service name expected for all calls.
     """
-    assert service == "images"
-    assert request.IsInitialized()
-
-    attr = getattr(self, "_Dynamic_" + call)
-    attr(request, response)
+    super(ImagesServiceStub, self).__init__(service_name)
+    Image.init()
 
   def _Dynamic_Transform(self, request, response):
     """Trivial implementation of ImagesService::Transform.
@@ -102,6 +97,8 @@ class ImagesServiceStub(object):
 
     if (output_encoding.mime_type() == images_service_pb.OutputSettings.JPEG):
       image_encoding = "JPEG"
+
+      image = image.convert("RGB")
 
     image.save(image_string, image_encoding)
 
@@ -253,24 +250,6 @@ class ImagesServiceStub(object):
 
     return image.crop(box)
 
-  def _CheckTransformCount(self, transform_map, req_transform):
-    """Check that the requested transform hasn't already been set in map.
-
-    Args:
-      transform_map: {images_service_pb.ImagesServiceTransform: boolean}, map
-        to use to determine if the requested transform has been called.
-      req_transform: images_service_pb.ImagesServiceTransform, the requested
-        transform.
-
-    Raises:
-      BadRequestError if we are passed more than one of the same type of
-      transform.
-    """
-    if req_transform in transform_map:
-      raise apiproxy_errors.ApplicationError(
-          images_service_pb.ImagesServiceError.BAD_TRANSFORM_DATA)
-    transform_map[req_transform] = True
-
   def _ProcessTransforms(self, image, transforms):
     """Execute PIL operations based on transform values.
 
@@ -286,56 +265,29 @@ class ImagesServiceStub(object):
       transform.
     """
     new_image = image
-    transform_map = {}
+    if len(transforms) > images.MAX_TRANSFORMS_PER_REQUEST:
+      raise apiproxy_errors.ApplicationError(
+          images_service_pb.ImagesServiceError.BAD_TRANSFORM_DATA)
     for transform in transforms:
       if transform.has_width() or transform.has_height():
-        self._CheckTransformCount(
-            transform_map,
-            images_service_pb.ImagesServiceTransform.RESIZE
-        )
-
         new_image = self._Resize(new_image, transform)
 
       elif transform.has_rotate():
-        self._CheckTransformCount(
-            transform_map,
-            images_service_pb.ImagesServiceTransform.ROTATE
-        )
-
         new_image = self._Rotate(new_image, transform)
 
       elif transform.has_horizontal_flip():
-        self._CheckTransformCount(
-            transform_map,
-            images_service_pb.ImagesServiceTransform.HORIZONTAL_FLIP
-        )
-
         new_image = new_image.transpose(Image.FLIP_LEFT_RIGHT)
 
       elif transform.has_vertical_flip():
-        self._CheckTransformCount(
-            transform_map,
-            images_service_pb.ImagesServiceTransform.VERTICAL_FLIP
-        )
-
         new_image = new_image.transpose(Image.FLIP_TOP_BOTTOM)
 
       elif (transform.has_crop_left_x() or
           transform.has_crop_top_y() or
           transform.has_crop_right_x() or
           transform.has_crop_bottom_y()):
-        self._CheckTransformCount(
-            transform_map,
-            images_service_pb.ImagesServiceTransform.CROP
-        )
-
         new_image = self._Crop(new_image, transform)
 
       elif transform.has_autolevels():
-        self._CheckTransformCount(
-            transform_map,
-            images_service_pb.ImagesServiceTransform.IM_FEELING_LUCKY
-        )
         logging.info("I'm Feeling Lucky autolevels will be visible once this "
                      "application is deployed.")
       else:

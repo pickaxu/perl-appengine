@@ -30,6 +30,8 @@ Classes defined in this module:
 
 
 
+import struct
+
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api.images import images_service_pb
 from google.appengine.runtime import apiproxy_errors
@@ -39,6 +41,8 @@ JPEG = images_service_pb.OutputSettings.JPEG
 PNG = images_service_pb.OutputSettings.PNG
 
 OUTPUT_ENCODING_TYPES = frozenset([JPEG, PNG])
+
+MAX_TRANSFORMS_PER_REQUEST = 10
 
 
 class Error(Exception):
@@ -82,27 +86,188 @@ class Image(object):
 
     self._image_data = image_data
     self._transforms = []
-    self._transform_map = {}
+    self._width = None
+    self._height = None
 
-  def _check_transform_limits(self, transform):
+  def _check_transform_limits(self):
     """Ensure some simple limits on the number of transforms allowed.
 
-    Args:
-      transform: images_service_pb.ImagesServiceTransform, enum of the
-        trasnform called.
+    Raises:
+      BadRequestError if MAX_TRANSFORMS_PER_REQUEST transforms have already been
+      requested for this image
+    """
+    if len(self._transforms) >= MAX_TRANSFORMS_PER_REQUEST:
+      raise BadRequestError("%d transforms have already been requested on this "
+                            "image." % MAX_TRANSFORMS_PER_REQUEST)
+
+  def _update_dimensions(self):
+    """Updates the width and height fields of the image.
 
     Raises:
-      BadRequestError if the transform has already been requested for the image.
+      NotImageError if the image data is not an image.
+      BadImageError if the image data is corrupt.
     """
-    if not images_service_pb.ImagesServiceTransform.Type_Name(transform):
-      raise BadRequestError("'%s' is not a valid transform." % transform)
+    size = len(self._image_data)
+    if size >= 6 and self._image_data.startswith("GIF"):
+      self._update_gif_dimensions()
+    elif size >= 8 and self._image_data.startswith("\x89PNG\x0D\x0A\x1A\x0A"):
+      self._update_png_dimensions()
+    elif size >= 2 and self._image_data.startswith("\xff\xD8"):
+      self._update_jpeg_dimensions()
+    elif (size >= 8 and (self._image_data.startswith("II\x2a\x00") or
+                         self._image_data.startswith("MM\x00\x2a"))):
+      self._update_tiff_dimensions()
+    elif size >= 2 and self._image_data.startswith("BM"):
+      self._update_bmp_dimensions()
+    elif size >= 4 and self._image_data.startswith("\x00\x00\x01\x00"):
+      self._update_ico_dimensions()
+    else:
+      raise NotImageError("Unrecognized image format")
 
-    if transform in self._transform_map:
-      transform_name = images_service_pb.ImagesServiceTransform.Type_Name(
-          transform)
-      raise BadRequestError("A '%s' transform has already been "
-                            "requested on this image." % transform_name)
-    self._transform_map[transform] = True
+  def _update_gif_dimensions(self):
+    """Updates the width and height fields of the gif image.
+
+    Raises:
+      BadImageError if the image string is not a valid gif image.
+    """
+    size = len(self._image_data)
+    if size >= 10:
+      self._width, self._height = struct.unpack("<HH", self._image_data[6:10])
+    else:
+      raise BadImageError("Corrupt GIF format")
+
+  def _update_png_dimensions(self):
+    """Updates the width and height fields of the png image.
+
+    Raises:
+      BadImageError if the image string is not a valid png image.
+    """
+    size = len(self._image_data)
+    if size >= 24 and self._image_data[12:16] == "IHDR":
+      self._width, self._height = struct.unpack(">II", self._image_data[16:24])
+    else:
+      raise BadImageError("Corrupt PNG format")
+
+  def _update_jpeg_dimensions(self):
+    """Updates the width and height fields of the jpeg image.
+
+    Raises:
+      BadImageError if the image string is not a valid jpeg image.
+    """
+    size = len(self._image_data)
+    offset = 2
+    while offset < size:
+      while offset < size and ord(self._image_data[offset]) != 0xFF:
+        offset += 1
+      while offset < size and ord(self._image_data[offset]) == 0xFF:
+        offset += 1
+      if (offset < size and ord(self._image_data[offset]) & 0xF0 == 0xC0 and
+          ord(self._image_data[offset]) != 0xC4):
+        offset += 4
+        if offset + 4 <= size:
+          self._height, self._width = struct.unpack(
+              ">HH",
+              self._image_data[offset:offset + 4])
+          break
+        else:
+          raise BadImageError("Corrupt JPEG format")
+      elif offset + 3 <= size:
+        offset += 1
+        offset += struct.unpack(">H", self._image_data[offset:offset + 2])[0]
+      else:
+        raise BadImageError("Corrupt JPEG format")
+    if self._height is None or self._width is None:
+      raise BadImageError("Corrupt JPEG format")
+
+  def _update_tiff_dimensions(self):
+    """Updates the width and height fields of the tiff image.
+
+    Raises:
+      BadImageError if the image string is not a valid tiff image.
+    """
+    size = len(self._image_data)
+    if self._image_data.startswith("II"):
+      endianness = "<"
+    else:
+      endianness = ">"
+    ifd_offset = struct.unpack(endianness + "I", self._image_data[4:8])[0]
+    if ifd_offset + 14 <= size:
+      ifd_size = struct.unpack(
+          endianness + "H",
+          self._image_data[ifd_offset:ifd_offset + 2])[0]
+      ifd_offset += 2
+      for unused_i in range(0, ifd_size):
+        if ifd_offset + 12 <= size:
+          tag = struct.unpack(
+              endianness + "H",
+              self._image_data[ifd_offset:ifd_offset + 2])[0]
+          if tag == 0x100 or tag == 0x101:
+            value_type = struct.unpack(
+                endianness + "H",
+                self._image_data[ifd_offset + 2:ifd_offset + 4])[0]
+            if value_type == 3:
+              format = endianness + "H"
+              end_offset = ifd_offset + 10
+            elif value_type == 4:
+              format = endianness + "I"
+              end_offset = ifd_offset + 12
+            else:
+              format = endianness + "B"
+              end_offset = ifd_offset + 9
+            if tag == 0x100:
+              self._width = struct.unpack(
+                  format,
+                  self._image_data[ifd_offset + 8:end_offset])[0]
+              if self._height is not None:
+                break
+            else:
+              self._height = struct.unpack(
+                  format,
+                  self._image_data[ifd_offset + 8:end_offset])[0]
+              if self._width is not None:
+                break
+          ifd_offset += 12
+        else:
+          raise BadImageError("Corrupt TIFF format")
+    if self._width is None or self._height is None:
+      raise BadImageError("Corrupt TIFF format")
+
+  def _update_bmp_dimensions(self):
+    """Updates the width and height fields of the bmp image.
+
+    Raises:
+      BadImageError if the image string is not a valid bmp image.
+    """
+    size = len(self._image_data)
+    if size >= 18:
+      header_length = struct.unpack("<I", self._image_data[14:18])[0]
+      if ((header_length == 40 or header_length == 108 or
+           header_length == 124 or header_length == 64) and size >= 26):
+        self._width, self._height = struct.unpack("<II",
+                                                  self._image_data[18:26])
+      elif header_length == 12 and size >= 22:
+        self._width, self._height = struct.unpack("<HH",
+                                                  self._image_data[18:22])
+      else:
+        raise BadImageError("Corrupt BMP format")
+    else:
+      raise BadImageError("Corrupt BMP format")
+
+  def _update_ico_dimensions(self):
+    """Updates the width and height fields of the ico image.
+
+    Raises:
+      BadImageError if the image string is not a valid ico image.
+    """
+    size = len(self._image_data)
+    if size >= 8:
+      self._width, self._height = struct.unpack("<BB", self._image_data[6:8])
+      if not self._width:
+        self._width = 256
+      if not self._height:
+        self._height = 256
+    else:
+      raise BadImageError("Corrupt ICO format")
 
   def resize(self, width=0, height=0):
     """Resize the image maintaining the aspect ratio.
@@ -118,7 +283,8 @@ class Image(object):
     Raises:
       TypeError when width or height is not either 'int' or 'long' types.
       BadRequestError when there is something wrong with the given height or
-        width or if a Resize has already been requested on this image.
+        width or if MAX_TRANSFORMS_PER_REQUEST transforms have already been
+        requested on this image.
     """
     if (not isinstance(width, (int, long)) or
         not isinstance(height, (int, long))):
@@ -132,8 +298,7 @@ class Image(object):
     if width > 4000 or height > 4000:
       raise BadRequestError("Both width and height must be < 4000.")
 
-    self._check_transform_limits(
-        images_service_pb.ImagesServiceTransform.RESIZE)
+    self._check_transform_limits()
 
     transform = images_service_pb.Transform()
     transform.set_width(width)
@@ -150,7 +315,7 @@ class Image(object):
     Raises:
       TypeError when degrees is not either 'int' or 'long' types.
       BadRequestError when there is something wrong with the given degrees or
-      if a Rotate trasnform has already been requested.
+      if MAX_TRANSFORMS_PER_REQUEST transforms have already been requested.
     """
     if not isinstance(degrees, (int, long)):
       raise TypeError("Degrees must be integers.")
@@ -160,8 +325,7 @@ class Image(object):
 
     degrees = degrees % 360
 
-    self._check_transform_limits(
-        images_service_pb.ImagesServiceTransform.ROTATE)
+    self._check_transform_limits()
 
     transform = images_service_pb.Transform()
     transform.set_rotate(degrees)
@@ -172,11 +336,10 @@ class Image(object):
     """Flip the image horizontally.
 
     Raises:
-      BadRequestError if a HorizontalFlip has already been requested on the
-      image.
+      BadRequestError if MAX_TRANSFORMS_PER_REQUEST transforms have already been
+      requested on the image.
     """
-    self._check_transform_limits(
-        images_service_pb.ImagesServiceTransform.HORIZONTAL_FLIP)
+    self._check_transform_limits()
 
     transform = images_service_pb.Transform()
     transform.set_horizontal_flip(True)
@@ -187,11 +350,10 @@ class Image(object):
     """Flip the image vertically.
 
     Raises:
-      BadRequestError if a HorizontalFlip has already been requested on the
-      image.
+      BadRequestError if MAX_TRANSFORMS_PER_REQUEST transforms have already been
+      requested on the image.
     """
-    self._check_transform_limits(
-        images_service_pb.ImagesServiceTransform.VERTICAL_FLIP)
+    self._check_transform_limits()
     transform = images_service_pb.Transform()
     transform.set_vertical_flip(True)
 
@@ -232,7 +394,8 @@ class Image(object):
     Raises:
       TypeError if the args are not of type 'float'.
       BadRequestError when there is something wrong with the given bounding box
-        or if there has already been a crop transform requested for this image.
+        or if MAX_TRANSFORMS_PER_REQUEST transforms have already been requested
+        for this image.
     """
     self._validate_crop_arg(left_x, "left_x")
     self._validate_crop_arg(top_y, "top_y")
@@ -244,7 +407,7 @@ class Image(object):
     if top_y >= bottom_y:
       raise BadRequestError("top_y must be less than bottom_y")
 
-    self._check_transform_limits(images_service_pb.ImagesServiceTransform.CROP)
+    self._check_transform_limits()
 
     transform = images_service_pb.Transform()
     transform.set_crop_left_x(left_x)
@@ -260,11 +423,10 @@ class Image(object):
     This is similar to the "I'm Feeling Lucky" button in Picasa.
 
     Raises:
-      BadRequestError if this transform has already been requested for this
-      image.
+      BadRequestError if MAX_TRANSFORMS_PER_REQUEST transforms have already
+      been requested for this image.
     """
-    self._check_transform_limits(
-        images_service_pb.ImagesServiceTransform.IM_FEELING_LUCKY)
+    self._check_transform_limits()
     transform = images_service_pb.Transform()
     transform.set_autolevels(True)
 
@@ -331,8 +493,23 @@ class Image(object):
 
     self._image_data = response.image().content()
     self._transforms = []
-    self._transform_map.clear()
+    self._width = None
+    self._height = None
     return self._image_data
+
+  @property
+  def width(self):
+    """Gets the width of the image."""
+    if self._width is None:
+      self._update_dimensions()
+    return self._width
+
+  @property
+  def height(self):
+    """Gets the height of the image."""
+    if self._height is None:
+      self._update_dimensions()
+    return self._height
 
 
 def resize(image_data, width=0, height=0, output_encoding=PNG):
@@ -351,7 +528,7 @@ def resize(image_data, width=0, height=0, output_encoding=PNG):
   Raises:
     TypeError when width or height not either 'int' or 'long' types.
     BadRequestError when there is something wrong with the given height or
-      width or if a Resize has already been requested on this image.
+      width.
     Error when something went wrong with the call.  See Image.ExecuteTransforms
       for more details.
   """
@@ -370,8 +547,7 @@ def rotate(image_data, degrees, output_encoding=PNG):
 
   Raises:
     TypeError when degrees is not either 'int' or 'long' types.
-    BadRequestError when there is something wrong with the given degrees or
-    if a Rotate trasnform has already been requested.
+    BadRequestError when there is something wrong with the given degrees.
     Error when something went wrong with the call.  See Image.ExecuteTransforms
       for more details.
   """
@@ -430,8 +606,7 @@ def crop(image_data, left_x, top_y, right_x, bottom_y, output_encoding=PNG):
 
   Raises:
     TypeError if the args are not of type 'float'.
-    BadRequestError when there is something wrong with the given bounding box
-      or if there has already been a crop transform requested for this image.
+    BadRequestError when there is something wrong with the given bounding box.
     Error when something went wrong with the call.  See Image.ExecuteTransforms
       for more details.
   """

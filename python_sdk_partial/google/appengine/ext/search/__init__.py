@@ -44,10 +44,14 @@ orders, e.g.:
   for result in query:
     ...
 
-The full text index is stored in a property named __searchable_text_index. If
-you want to use search() in a query with an ancestor, filters, or sort orders,
-you'll need to create an index in index.yaml with the __searchable_text_index
-property. For example:
+The full text index is stored in a property named __searchable_text_index.
+
+
+In general, if you just want to provide full text search, you *don't* need to
+add any extra indexes to your index.yaml. However, if you want to use search()
+in a query *in addition to* an ancestor, filter, or sort order, you'll need to
+create an index in index.yaml with the __searchable_text_index property. For
+example:
 
   - kind: Article
     properties:
@@ -118,9 +122,10 @@ class SearchableEntity(datastore.Entity):
    'where', 'whether', 'which', 'while', 'who', 'whose', 'why', 'widely',
    'will', 'with', 'within', 'without', 'would', 'yet', 'you'])
 
-  _PUNCTUATION_REGEX = re.compile('[' + re.escape(string.punctuation) + ']')
+  _word_delimiter_regex = re.compile('[' + re.escape(string.punctuation) + ']')
 
-  def __init__(self, kind_or_entity, *args, **kwargs):
+  def __init__(self, kind_or_entity, word_delimiter_regex=None, *args,
+               **kwargs):
     """Constructor. May be called as a copy constructor.
 
     If kind_or_entity is a datastore.Entity, copies it into this Entity.
@@ -133,7 +138,9 @@ class SearchableEntity(datastore.Entity):
 
     Args:
       kind_or_entity: string or datastore.Entity
+      word_delimiter_regex: a regex matching characters that delimit words
     """
+    self._word_delimiter_regex = word_delimiter_regex
     if isinstance(kind_or_entity, datastore.Entity):
       self._Entity__key = kind_or_entity._Entity__key
       self.update(kind_or_entity)
@@ -156,7 +163,8 @@ class SearchableEntity(datastore.Entity):
       if (isinstance(values[0], basestring) and
           not isinstance(values[0], datastore_types.Blob)):
         for value in values:
-          index.update(SearchableEntity._FullTextIndex(value))
+          index.update(SearchableEntity._FullTextIndex(
+              value, self._word_delimiter_regex))
 
     index_list = list(index)
     if index_list:
@@ -165,7 +173,7 @@ class SearchableEntity(datastore.Entity):
     return super(SearchableEntity, self)._ToPb()
 
   @classmethod
-  def _FullTextIndex(cls, text):
+  def _FullTextIndex(cls, text, word_delimiter_regex=None):
     """Returns a set of keywords appropriate for full text indexing.
 
     See SearchableQuery.Search() for details.
@@ -177,12 +185,15 @@ class SearchableEntity(datastore.Entity):
       set of strings
     """
 
+    if word_delimiter_regex is None:
+      word_delimiter_regex = cls._word_delimiter_regex
+
     if text:
       datastore_types.ValidateString(text, 'text', max_len=sys.maxint)
-      text = cls._PUNCTUATION_REGEX.sub(' ', text)
+      text = word_delimiter_regex.sub(' ', text)
       words = text.lower().split()
 
-      words = set(words)
+      words = set(unicode(w) for w in words)
 
       words -= cls._FULL_TEXT_STOP_WORDS
       for word in list(words):
@@ -202,7 +213,7 @@ class SearchableQuery(datastore.Query):
   SearchableEntity or SearchableModel classes.
   """
 
-  def Search(self, search_query):
+  def Search(self, search_query, word_delimiter_regex=None):
     """Add a search query. This may be combined with filters.
 
     Note that keywords in the search query will be silently dropped if they
@@ -217,6 +228,7 @@ class SearchableQuery(datastore.Query):
     """
     datastore_types.ValidateString(search_query, 'search query')
     self._search_query = search_query
+    self._word_delimiter_regex = word_delimiter_regex
     return self
 
   def _ToPb(self, limit=None, offset=None):
@@ -241,15 +253,35 @@ class SearchableQuery(datastore.Query):
     pb = super(SearchableQuery, self)._ToPb(limit=limit, offset=offset)
 
     if hasattr(self, '_search_query'):
-      keywords = SearchableEntity._FullTextIndex(self._search_query)
+      keywords = SearchableEntity._FullTextIndex(
+          self._search_query, self._word_delimiter_regex)
       for keyword in keywords:
         filter = pb.add_filter()
         filter.set_op(datastore_pb.Query_Filter.EQUAL)
         prop = filter.add_property()
         prop.set_name(SearchableEntity._FULL_TEXT_INDEX_PROPERTY)
-        prop.mutable_value().set_stringvalue(keyword)
+        prop.set_multiple(len(keywords) > 1)
+        prop.mutable_value().set_stringvalue(unicode(keyword).encode('utf-8'))
 
     return pb
+
+
+class SearchableMultiQuery(datastore.MultiQuery):
+  """A multiquery that supports Search() by searching subqueries."""
+
+  def Search(self, *args, **kwargs):
+    """Add a search query, by trying to add it to all subqueries.
+
+    Args:
+      args: Passed to Search on each subquery.
+      kwargs: Passed to Search on each subquery.
+
+    Returns:
+      self for consistency with SearchableQuery.
+    """
+    for q in self:
+      q.Search(*args, **kwargs)
+    return self
 
 
 class SearchableModel(db.Model):
@@ -277,7 +309,9 @@ class SearchableModel(db.Model):
 
     def _get_query(self):
       """Wraps db.Query._get_query() and injects SearchableQuery."""
-      query = db.Query._get_query(self, _query_class=SearchableQuery)
+      query = db.Query._get_query(self,
+                                  _query_class=SearchableQuery,
+                                  _multi_query_class=SearchableMultiQuery)
       if self._search_query:
         query.Search(self._search_query)
       return query
@@ -287,6 +321,13 @@ class SearchableModel(db.Model):
     SearchableEntity."""
     return db.Model._populate_internal_entity(self,
                                               _entity_class=SearchableEntity)
+
+  @classmethod
+  def from_entity(cls, entity):
+    """Wraps db.Model.from_entity() and injects SearchableEntity."""
+    if not isinstance(entity, SearchableEntity):
+      entity = SearchableEntity(entity)
+    return super(SearchableModel, cls).from_entity(entity)
 
   @classmethod
   def all(cls):

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""Convenience wrapper for starting appcfg."""
+"""Convenience wrapper for starting an appengine tool."""
 
 
 import os
@@ -33,16 +33,28 @@ if version_tuple == (2, 4):
   sys.stderr.write('Warning: Python 2.4 is not supported; this program may '
                    'break. Please use version 2.5 or greater.\n')
 
-APPCFG_PATH = 'google/appengine/tools/appcfg.py'
-
 DIR_PATH = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
+SCRIPT_DIR = os.path.join(DIR_PATH, 'google', 'appengine', 'tools')
 
 EXTRA_PATHS = [
   DIR_PATH,
+  os.path.join(DIR_PATH, 'lib', 'antlr3'),
+  os.path.join(DIR_PATH, 'lib', 'django'),
+  os.path.join(DIR_PATH, 'lib', 'webob'),
   os.path.join(DIR_PATH, 'lib', 'yaml', 'lib'),
 ]
 
-if __name__ == '__main__':
+SCRIPT_EXCEPTIONS = {
+  "dev_appserver.py" : "dev_appserver_main.py"
+}
+
+def run_file(file_path, globals_, script_dir=SCRIPT_DIR):
+  """Execute the file at the specified path with the passed-in globals."""
   sys.path = EXTRA_PATHS + sys.path
-  script_path = os.path.join(DIR_PATH, APPCFG_PATH)
-  execfile(script_path, globals())
+  script_name = os.path.basename(file_path)
+  script_name = SCRIPT_EXCEPTIONS.get(script_name, script_name)
+  script_path = os.path.join(script_dir, script_name)
+  execfile(script_path, globals_)
+
+if __name__ == '__main__':
+  run_file(__file__, globals())

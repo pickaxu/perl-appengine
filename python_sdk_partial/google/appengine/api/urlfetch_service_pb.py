@@ -30,6 +30,7 @@ class URLFetchServiceError(ProtocolBuffer.ProtocolMessage):
   FETCH_ERROR  =    2
   UNSPECIFIED_ERROR =    3
   RESPONSE_TOO_LARGE =    4
+  DEADLINE_EXCEEDED =    5
 
   _ErrorCode_NAMES = {
     0: "OK",
@@ -37,10 +38,12 @@ class URLFetchServiceError(ProtocolBuffer.ProtocolMessage):
     2: "FETCH_ERROR",
     3: "UNSPECIFIED_ERROR",
     4: "RESPONSE_TOO_LARGE",
+    5: "DEADLINE_EXCEEDED",
   }
 
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")
   ErrorCode_Name = classmethod(ErrorCode_Name)
+
 
   def __init__(self, contents=None):
     pass
@@ -53,12 +56,6 @@ class URLFetchServiceError(ProtocolBuffer.ProtocolMessage):
   def Equals(self, x):
     if x is self: return 1
     return 1
-
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
@@ -97,11 +94,12 @@ class URLFetchServiceError(ProtocolBuffer.ProtocolMessage):
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
 class URLFetchRequest_Header(ProtocolBuffer.ProtocolMessage):
+  has_key_ = 0
+  key_ = ""
+  has_value_ = 0
+  value_ = ""
+
   def __init__(self, contents=None):
-    self.key_ = ""
-    self.value_ = ""
-    self.has_key_ = 0
-    self.has_value_ = 0
     if contents is not None: self.MergeFromString(contents)
 
   def key(self): return self.key_
@@ -111,8 +109,9 @@ class URLFetchRequest_Header(ProtocolBuffer.ProtocolMessage):
     self.key_ = x
 
   def clear_key(self):
-    self.has_key_ = 0
-    self.key_ = ""
+    if self.has_key_:
+      self.has_key_ = 0
+      self.key_ = ""
 
   def has_key(self): return self.has_key_
 
@@ -123,8 +122,9 @@ class URLFetchRequest_Header(ProtocolBuffer.ProtocolMessage):
     self.value_ = x
 
   def clear_value(self):
-    self.has_value_ = 0
-    self.value_ = ""
+    if self.has_value_:
+      self.has_value_ = 0
+      self.value_ = ""
 
   def has_value(self): return self.has_value_
 
@@ -141,12 +141,6 @@ class URLFetchRequest_Header(ProtocolBuffer.ProtocolMessage):
     if self.has_value_ != x.has_value_: return 0
     if self.has_value_ and self.value_ != x.value_: return 0
     return 1
-
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
@@ -215,14 +209,17 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
   def RequestMethod_Name(cls, x): return cls._RequestMethod_NAMES.get(x, "")
   RequestMethod_Name = classmethod(RequestMethod_Name)
 
+  has_method_ = 0
+  method_ = 0
+  has_url_ = 0
+  url_ = ""
+  has_payload_ = 0
+  payload_ = ""
+  has_followredirects_ = 0
+  followredirects_ = 1
+
   def __init__(self, contents=None):
-    self.method_ = 0
-    self.url_ = ""
     self.header_ = []
-    self.payload_ = ""
-    self.has_method_ = 0
-    self.has_url_ = 0
-    self.has_payload_ = 0
     if contents is not None: self.MergeFromString(contents)
 
   def method(self): return self.method_
@@ -232,8 +229,9 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
     self.method_ = x
 
   def clear_method(self):
-    self.has_method_ = 0
-    self.method_ = 0
+    if self.has_method_:
+      self.has_method_ = 0
+      self.method_ = 0
 
   def has_method(self): return self.has_method_
 
@@ -244,8 +242,9 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
     self.url_ = x
 
   def clear_url(self):
-    self.has_url_ = 0
-    self.url_ = ""
+    if self.has_url_:
+      self.has_url_ = 0
+      self.url_ = ""
 
   def has_url(self): return self.has_url_
 
@@ -272,10 +271,24 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
     self.payload_ = x
 
   def clear_payload(self):
-    self.has_payload_ = 0
-    self.payload_ = ""
+    if self.has_payload_:
+      self.has_payload_ = 0
+      self.payload_ = ""
 
   def has_payload(self): return self.has_payload_
+
+  def followredirects(self): return self.followredirects_
+
+  def set_followredirects(self, x):
+    self.has_followredirects_ = 1
+    self.followredirects_ = x
+
+  def clear_followredirects(self):
+    if self.has_followredirects_:
+      self.has_followredirects_ = 0
+      self.followredirects_ = 1
+
+  def has_followredirects(self): return self.has_followredirects_
 
 
   def MergeFrom(self, x):
@@ -284,6 +297,7 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
     if (x.has_url()): self.set_url(x.url())
     for i in xrange(x.header_size()): self.add_header().CopyFrom(x.header(i))
     if (x.has_payload()): self.set_payload(x.payload())
+    if (x.has_followredirects()): self.set_followredirects(x.followredirects())
 
   def Equals(self, x):
     if x is self: return 1
@@ -296,13 +310,9 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
       if e1 != e2: return 0
     if self.has_payload_ != x.has_payload_: return 0
     if self.has_payload_ and self.payload_ != x.payload_: return 0
+    if self.has_followredirects_ != x.has_followredirects_: return 0
+    if self.has_followredirects_ and self.followredirects_ != x.followredirects_: return 0
     return 1
-
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
@@ -314,8 +324,8 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
       initialized = 0
       if debug_strs is not None:
         debug_strs.append('Required field: url not set.')
-    for i in xrange(len(self.header_)):
-      if (not self.header_[i].IsInitialized(debug_strs)): initialized=0
+    for p in self.header_:
+      if not p.IsInitialized(debug_strs): initialized=0
     return initialized
 
   def ByteSize(self):
@@ -325,6 +335,7 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
     n += 2 * len(self.header_)
     for i in xrange(len(self.header_)): n += self.header_[i].ByteSize()
     if (self.has_payload_): n += 1 + self.lengthString(len(self.payload_))
+    if (self.has_followredirects_): n += 2
     return n + 2
 
   def Clear(self):
@@ -332,6 +343,7 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
     self.clear_url()
     self.clear_header()
     self.clear_payload()
+    self.clear_followredirects()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(8)
@@ -345,6 +357,9 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_payload_):
       out.putVarInt32(50)
       out.putPrefixedString(self.payload_)
+    if (self.has_followredirects_):
+      out.putVarInt32(56)
+      out.putBoolean(self.followredirects_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -360,6 +375,9 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
         continue
       if tt == 50:
         self.set_payload(d.getPrefixedString())
+        continue
+      if tt == 56:
+        self.set_followredirects(d.getBoolean())
         continue
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
       d.skipData(tt)
@@ -378,6 +396,7 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
       res+=prefix+"}\n"
       cnt+=1
     if self.has_payload_: res+=prefix+("Payload: %s\n" % self.DebugFormatString(self.payload_))
+    if self.has_followredirects_: res+=prefix+("FollowRedirects: %s\n" % self.DebugFormatBool(self.followredirects_))
     return res
 
   kMethod = 1
@@ -386,6 +405,7 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
   kHeaderKey = 4
   kHeaderValue = 5
   kPayload = 6
+  kFollowRedirects = 7
 
   _TEXT = (
    "ErrorCode",
@@ -395,6 +415,7 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
    "Key",
    "Value",
    "Payload",
+   "FollowRedirects",
   )
 
   _TYPES = (
@@ -411,16 +432,19 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
 
    ProtocolBuffer.Encoder.STRING,
 
+   ProtocolBuffer.Encoder.NUMERIC,
+
   )
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
 class URLFetchResponse_Header(ProtocolBuffer.ProtocolMessage):
+  has_key_ = 0
+  key_ = ""
+  has_value_ = 0
+  value_ = ""
+
   def __init__(self, contents=None):
-    self.key_ = ""
-    self.value_ = ""
-    self.has_key_ = 0
-    self.has_value_ = 0
     if contents is not None: self.MergeFromString(contents)
 
   def key(self): return self.key_
@@ -430,8 +454,9 @@ class URLFetchResponse_Header(ProtocolBuffer.ProtocolMessage):
     self.key_ = x
 
   def clear_key(self):
-    self.has_key_ = 0
-    self.key_ = ""
+    if self.has_key_:
+      self.has_key_ = 0
+      self.key_ = ""
 
   def has_key(self): return self.has_key_
 
@@ -442,8 +467,9 @@ class URLFetchResponse_Header(ProtocolBuffer.ProtocolMessage):
     self.value_ = x
 
   def clear_value(self):
-    self.has_value_ = 0
-    self.value_ = ""
+    if self.has_value_:
+      self.has_value_ = 0
+      self.value_ = ""
 
   def has_value(self): return self.has_value_
 
@@ -460,12 +486,6 @@ class URLFetchResponse_Header(ProtocolBuffer.ProtocolMessage):
     if self.has_value_ != x.has_value_: return 0
     if self.has_value_ and self.value_ != x.value_: return 0
     return 1
-
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
@@ -516,14 +536,15 @@ class URLFetchResponse_Header(ProtocolBuffer.ProtocolMessage):
     return res
 
 class URLFetchResponse(ProtocolBuffer.ProtocolMessage):
+  has_content_ = 0
+  content_ = ""
+  has_statuscode_ = 0
+  statuscode_ = 0
+  has_contentwastruncated_ = 0
+  contentwastruncated_ = 0
+
   def __init__(self, contents=None):
-    self.content_ = ""
-    self.statuscode_ = 0
     self.header_ = []
-    self.contentwastruncated_ = 0
-    self.has_content_ = 0
-    self.has_statuscode_ = 0
-    self.has_contentwastruncated_ = 0
     if contents is not None: self.MergeFromString(contents)
 
   def content(self): return self.content_
@@ -533,8 +554,9 @@ class URLFetchResponse(ProtocolBuffer.ProtocolMessage):
     self.content_ = x
 
   def clear_content(self):
-    self.has_content_ = 0
-    self.content_ = ""
+    if self.has_content_:
+      self.has_content_ = 0
+      self.content_ = ""
 
   def has_content(self): return self.has_content_
 
@@ -545,8 +567,9 @@ class URLFetchResponse(ProtocolBuffer.ProtocolMessage):
     self.statuscode_ = x
 
   def clear_statuscode(self):
-    self.has_statuscode_ = 0
-    self.statuscode_ = 0
+    if self.has_statuscode_:
+      self.has_statuscode_ = 0
+      self.statuscode_ = 0
 
   def has_statuscode(self): return self.has_statuscode_
 
@@ -573,8 +596,9 @@ class URLFetchResponse(ProtocolBuffer.ProtocolMessage):
     self.contentwastruncated_ = x
 
   def clear_contentwastruncated(self):
-    self.has_contentwastruncated_ = 0
-    self.contentwastruncated_ = 0
+    if self.has_contentwastruncated_:
+      self.has_contentwastruncated_ = 0
+      self.contentwastruncated_ = 0
 
   def has_contentwastruncated(self): return self.has_contentwastruncated_
 
@@ -599,20 +623,14 @@ class URLFetchResponse(ProtocolBuffer.ProtocolMessage):
     if self.has_contentwastruncated_ and self.contentwastruncated_ != x.contentwastruncated_: return 0
     return 1
 
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
-
   def IsInitialized(self, debug_strs=None):
     initialized = 1
     if (not self.has_statuscode_):
       initialized = 0
       if debug_strs is not None:
         debug_strs.append('Required field: statuscode not set.')
-    for i in xrange(len(self.header_)):
-      if (not self.header_[i].IsInitialized(debug_strs)): initialized=0
+    for p in self.header_:
+      if not p.IsInitialized(debug_strs): initialized=0
     return initialized
 
   def ByteSize(self):

@@ -40,12 +40,23 @@ _FILES_REGEX = r'(?!\^).*(?!\$).'
 _DELTA_REGEX = r'([1-9][0-9]*)([DdHhMm]|[sS]?)'
 _EXPIRATION_REGEX = r'\s*(%s)(\s+%s)*\s*' % (_DELTA_REGEX, _DELTA_REGEX)
 
+_EXPIRATION_CONVERSIONS = {
+  'd': 60 * 60 * 24,
+  'h': 60 * 60,
+  'm': 60,
+  's': 1,
+}
+
 APP_ID_MAX_LEN = 100
 MAJOR_VERSION_ID_MAX_LEN = 100
 MAX_URL_MAPS = 100
 
 APPLICATION_RE_STRING = r'(?!-)[a-z\d\-]{1,%d}' % APP_ID_MAX_LEN
 VERSION_RE_STRING = r'(?!-)[a-z\d\-]{1,%d}' % MAJOR_VERSION_ID_MAX_LEN
+
+RUNTIME_RE_STRING = r'[a-z]{1,30}'
+
+API_VERSION_RE_STRING = r'[\w.]{1,32}'
 
 HANDLER_STATIC_FILES = 'static_files'
 HANDLER_STATIC_DIR = 'static_dir'
@@ -55,7 +66,9 @@ LOGIN_OPTIONAL = 'optional'
 LOGIN_REQUIRED = 'required'
 LOGIN_ADMIN = 'admin'
 
-RUNTIME_PYTHON = 'python'
+SECURE_HTTP = 'never'
+SECURE_HTTPS = 'always'
+SECURE_HTTP_OR_HTTPS = 'optional'
 
 DEFAULT_SKIP_FILES = (r"^(.*/)?("
                       r"(app\.yaml)|"
@@ -70,6 +83,7 @@ DEFAULT_SKIP_FILES = (r"^(.*/)?("
                       r")$")
 
 LOGIN = 'login'
+SECURE = 'secure'
 URL = 'url'
 STATIC_FILES = 'static_files'
 UPLOAD = 'upload'
@@ -110,6 +124,8 @@ class URLMap(validation.Validated):
   Attributes:
     login: Whether or not login is required to access URL.  Defaults to
       'optional'.
+    secure: Restriction on the protocol which can be used to serve
+            this URL/handler (HTTP, HTTPS or either).
     url: Regular expression used to fully match against the request URLs path.
       See Special Cases for using static_dir.
     static_files: Handler id attribute that maps URL to the appropriate
@@ -164,6 +180,11 @@ class URLMap(validation.Validated):
                               LOGIN_ADMIN,
                               default=LOGIN_OPTIONAL),
 
+    SECURE: validation.Options(SECURE_HTTP,
+                               SECURE_HTTPS,
+                               SECURE_HTTP_OR_HTTPS,
+                               default=SECURE_HTTP),
+
 
 
     HANDLER_STATIC_FILES: validation.Optional(_FILES_REGEX),
@@ -180,7 +201,7 @@ class URLMap(validation.Validated):
     HANDLER_SCRIPT: validation.Optional(_FILES_REGEX),
   }
 
-  COMMON_FIELDS = set([URL, LOGIN])
+  COMMON_FIELDS = set([URL, LOGIN, SECURE])
 
   ALLOWED_FIELDS = {
     HANDLER_STATIC_FILES: (MIME_TYPE, UPLOAD, EXPIRATION),
@@ -285,10 +306,10 @@ class AppInfoExternal(validation.Validated):
 
     APPLICATION: APPLICATION_RE_STRING,
     VERSION: VERSION_RE_STRING,
-    RUNTIME: validation.Options(RUNTIME_PYTHON),
+    RUNTIME: RUNTIME_RE_STRING,
 
 
-    API_VERSION: validation.Options('1', 'beta'),
+    API_VERSION: API_VERSION_RE_STRING,
     HANDLERS: validation.Optional(validation.Repeated(URLMap)),
     DEFAULT_EXPIRATION: validation.Optional(_EXPIRATION_REGEX),
     SKIP_FILES: validation.RegexStr(default=DEFAULT_SKIP_FILES)
@@ -338,6 +359,24 @@ def LoadSingleAppInfo(app_info):
   if len(app_infos) > 1:
     raise appinfo_errors.MultipleConfigurationFile()
   return app_infos[0]
+
+
+def ParseExpiration(expiration):
+  """Parses an expiration delta string.
+
+  Args:
+    expiration: String that matches _DELTA_REGEX.
+
+  Returns:
+    Time delta in seconds.
+  """
+  delta = 0
+  for match in re.finditer(_DELTA_REGEX, expiration):
+    amount = int(match.group(1))
+    units = _EXPIRATION_CONVERSIONS.get(match.group(2).lower(), 1)
+    delta += amount * units
+  return delta
+
 
 
 _file_path_positive_re = re.compile(r'^[ 0-9a-zA-Z\._\+/\$-]{1,256}$')

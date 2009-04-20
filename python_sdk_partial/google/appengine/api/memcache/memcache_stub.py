@@ -22,6 +22,7 @@
 import logging
 import time
 
+from google.appengine.api import apiproxy_stub
 from google.appengine.api import memcache
 from google.appengine.api.memcache import memcache_service_pb
 
@@ -91,19 +92,21 @@ class CacheEntry(object):
     return self.locked and not self.CheckExpired()
 
 
-class MemcacheServiceStub(object):
+class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
   """Python only memcache service stub.
 
   This stub keeps all data in the local process' memory, not in any
   external servers.
   """
 
-  def __init__(self, gettime=time.time):
+  def __init__(self, gettime=time.time, service_name='memcache'):
     """Initializer.
 
     Args:
       gettime: time.time()-like function used for testing.
+      service_name: Service name expected for all calls.
     """
+    super(MemcacheServiceStub, self).__init__(service_name)
     self._gettime = gettime
     self._ResetStats()
 
@@ -114,22 +117,7 @@ class MemcacheServiceStub(object):
     self._hits = 0
     self._misses = 0
     self._byte_hits = 0
-
-  def MakeSyncCall(self, service, call, request, response):
-    """The main RPC entry point.
-
-    Args:
-      service: Must be name as defined by sub class variable SERVICE.
-      call: A string representing the rpc to make.  Must be part of
-        MemcacheService.
-      request: A protocol buffer of the type corresponding to 'call'.
-      response: A protocol buffer of the type corresponding to 'call'.
-    """
-    assert service == 'memcache'
-    assert request.IsInitialized()
-
-    attr = getattr(self, '_Dynamic_' + call)
-    attr(request, response)
+    self._cache_creation_time = self._gettime()
 
   def _GetKey(self, key):
     """Retrieves a CacheEntry from the cache if it hasn't expired.
@@ -214,7 +202,7 @@ class MemcacheServiceStub(object):
       delete_status = MemcacheDeleteResponse.DELETED
       if entry is None:
         delete_status = MemcacheDeleteResponse.NOT_FOUND
-      elif item.delete_time == 0:
+      elif item.delete_time() == 0:
         del self._the_cache[key]
       else:
         entry.ExpireAndLock(item.delete_time())
@@ -235,9 +223,11 @@ class MemcacheServiceStub(object):
 
     try:
       old_value = long(entry.value)
+      if old_value < 0:
+        raise ValueError
     except ValueError, e:
       logging.error('Increment/decrement failed: Could not interpret '
-                    'value for key = "%s" as an integer.', key)
+                    'value for key = "%s" as an unsigned integer.', key)
       return
 
     delta = request.delta()
@@ -279,4 +269,4 @@ class MemcacheServiceStub(object):
       total_bytes += len(entry.value)
     stats.set_bytes(total_bytes)
 
-    stats.set_oldest_item_age(1800)
+    stats.set_oldest_item_age(self._gettime() - self._cache_creation_time)

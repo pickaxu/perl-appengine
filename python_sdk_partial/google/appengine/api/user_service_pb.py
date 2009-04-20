@@ -27,14 +27,17 @@ class UserServiceError(ProtocolBuffer.ProtocolMessage):
 
   OK           =    0
   REDIRECT_URL_TOO_LONG =    1
+  NOT_ALLOWED  =    2
 
   _ErrorCode_NAMES = {
     0: "OK",
     1: "REDIRECT_URL_TOO_LONG",
+    2: "NOT_ALLOWED",
   }
 
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")
   ErrorCode_Name = classmethod(ErrorCode_Name)
+
 
   def __init__(self, contents=None):
     pass
@@ -47,12 +50,6 @@ class UserServiceError(ProtocolBuffer.ProtocolMessage):
   def Equals(self, x):
     if x is self: return 1
     return 1
-
-  def __eq__(self, other):
-    return (other is not None) and (other.__class__ == self.__class__) and self.Equals(other)
-
-  def __ne__(self, other):
-    return not (self == other)
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1

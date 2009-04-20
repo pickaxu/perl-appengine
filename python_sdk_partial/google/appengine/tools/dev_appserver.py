@@ -31,11 +31,7 @@ Example:
 """
 
 
-import os
-os.environ['TZ'] = 'UTC'
-import time
-if hasattr(time, 'tzset'):
-  time.tzset()
+from google.appengine.tools import os_compat
 
 import __builtin__
 import BaseHTTPServer
@@ -44,14 +40,17 @@ import cStringIO
 import cgi
 import cgitb
 import dummy_thread
+import email.Utils
 import errno
 import httplib
 import imp
 import inspect
 import itertools
+import locale
 import logging
 import mimetools
 import mimetypes
+import os
 import pickle
 import pprint
 import random
@@ -61,24 +60,31 @@ import sre_compile
 import sre_constants
 import sre_parse
 
+import mimetypes
 import socket
 import sys
-import urlparse
+import time
 import traceback
 import types
+import urlparse
+import urllib
 
 import google
 from google.pyglib import gexcept
 
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import appinfo
+from google.appengine.api import croninfo
 from google.appengine.api import datastore_admin
 from google.appengine.api import datastore_file_stub
-from google.appengine.api import urlfetch_stub
 from google.appengine.api import mail_stub
+from google.appengine.api import urlfetch_stub
 from google.appengine.api import user_service_stub
 from google.appengine.api import yaml_errors
+from google.appengine.api.capabilities import capability_stub
 from google.appengine.api.memcache import memcache_stub
+
+from google.appengine import dist
 
 from google.appengine.tools import dev_appserver_index
 from google.appengine.tools import dev_appserver_login
@@ -101,6 +107,20 @@ DEFAULT_ENV = {
   'AUTH_DOMAIN': 'gmail.com',
   'TZ': 'UTC',
 }
+
+for ext, mime_type in (('.asc', 'text/plain'),
+                       ('.diff', 'text/plain'),
+                       ('.csv', 'text/comma-separated-values'),
+                       ('.rss', 'application/rss+xml'),
+                       ('.text', 'text/plain'),
+                       ('.wbmp', 'image/vnd.wap.wbmp')):
+  mimetypes.add_type(mime_type, ext)
+
+MAX_RUNTIME_RESPONSE_SIZE = 10 << 20
+
+MAX_REQUEST_SIZE = 10 * 1024 * 1024
+
+API_VERSION = '1'
 
 
 class Error(Exception):
@@ -178,8 +198,30 @@ class URLDispatcher(object):
       outfile: File-like object where output data should be written.
       base_env_dict: Dictionary of CGI environment parameters if available.
         Defaults to None.
+
+    Returns:
+      None if request handling is complete.
+      Tuple (path, headers, input_file) for an internal redirect:
+        path: Path of URL to redirect to.
+        headers: Headers to send to other dispatcher.
+        input_file: New input to send to new dispatcher.
     """
     raise NotImplementedError
+
+  def EndRedirect(self, dispatched_output, original_output):
+    """Process the end of an internal redirect.
+
+    This method is called after all subsequent dispatch requests have finished.
+    By default the output from the dispatched process is copied to the original.
+
+    This will not be called on dispatchers that do not return an internal
+    redirect.
+
+    Args:
+      dispatched_output: StringIO buffer containing the results from the
+       dispatched
+    """
+    original_output.write(dispatched_output.read())
 
 
 class URLMatcher(object):
@@ -331,12 +373,25 @@ class MatcherDispatcher(URLDispatcher):
                       'authorized to view this page.'
                       % (httplib.FORBIDDEN, email))
       else:
-        dispatcher.Dispatch(relative_url,
-                            matched_path,
-                            headers,
-                            infile,
-                            outfile,
-                            base_env_dict=base_env_dict)
+        forward = dispatcher.Dispatch(relative_url,
+                                      matched_path,
+                                      headers,
+                                      infile,
+                                      outfile,
+                                      base_env_dict=base_env_dict)
+
+        if forward:
+          new_path, new_headers, new_input = forward
+          logging.info('Internal redirection to %s' % new_path)
+          new_outfile = cStringIO.StringIO()
+          self.Dispatch(new_path,
+                        None,
+                        new_headers,
+                        new_input,
+                        new_outfile,
+                        dict(base_env_dict))
+          new_outfile.seek(0)
+          dispatcher.EndRedirect(new_outfile, outfile)
 
       return
 
@@ -453,7 +508,8 @@ class ApplicationLoggingHandler(logging.Handler):
     outfile.write('</span>\n')
 
 
-_IGNORE_HEADERS = frozenset(['content-type', 'content-length'])
+_IGNORE_REQUEST_HEADERS = frozenset(['content-type', 'content-length',
+                                     'accept-encoding', 'transfer-encoding'])
 
 def SetupEnvironment(cgi_path,
                      relative_url,
@@ -477,7 +533,7 @@ def SetupEnvironment(cgi_path,
 
   env['SCRIPT_NAME'] = ''
   env['QUERY_STRING'] = query_string
-  env['PATH_INFO'] = script_name
+  env['PATH_INFO'] = urllib.unquote(script_name)
   env['PATH_TRANSLATED'] = cgi_path
   env['CONTENT_TYPE'] = headers.getheader('content-type',
                                           'application/x-www-form-urlencoded')
@@ -490,7 +546,7 @@ def SetupEnvironment(cgi_path,
     env['USER_IS_ADMIN'] = '1'
 
   for key in headers:
-    if key in _IGNORE_HEADERS:
+    if key in _IGNORE_REQUEST_HEADERS:
       continue
     adjusted_name = key.replace('-', '_').upper()
     env['HTTP_' + adjusted_name] = ', '.join(headers.getheaders(key))
@@ -498,16 +554,18 @@ def SetupEnvironment(cgi_path,
   return env
 
 
-def FakeTemporaryFile(*args, **kwargs):
-  """Fake for tempfile.TemporaryFile that just uses StringIO."""
-  return cStringIO.StringIO()
-
-
 def NotImplementedFake(*args, **kwargs):
-  """Fake for methods/classes that are not implemented in the production
+  """Fake for methods/functions that are not implemented in the production
   environment.
   """
   raise NotImplementedError("This class/method is not available.")
+
+
+class NotImplementedFakeClass(object):
+  """Fake class for classes that are not implemented in the production
+  environment.
+  """
+  __init__ = NotImplementedFake
 
 
 def IsEncodingsModule(module_name):
@@ -552,6 +610,34 @@ def FakeURandom(n):
 def FakeUname():
   """Fake version of os.uname."""
   return ('Linux', '', '', '', '')
+
+
+def FakeUnlink(path):
+  """Fake version of os.unlink."""
+  if os.path.isdir(path):
+    raise OSError(2, "Is a directory", path)
+  else:
+    raise OSError(1, "Operation not permitted", path)
+
+
+def FakeReadlink(path):
+  """Fake version of os.readlink."""
+  raise OSError(22, "Invalid argument", path)
+
+
+def FakeAccess(path, mode):
+  """Fake version of os.access where only reads are supported."""
+  if not os.path.exists(path) or mode != os.R_OK:
+    return False
+  else:
+    return True
+
+
+def FakeSetLocale(category, value=None, original_setlocale=locale.setlocale):
+  """Fake version of locale.setlocale that only supports the default."""
+  if value not in (None, '', 'C', 'POSIX'):
+    raise locale.Error, 'locale emulation only supports "C" locale'
+  return original_setlocale(category, 'C')
 
 
 def IsPathInSubdirectories(filename,
@@ -665,7 +751,8 @@ class FakeFile(file):
                       if os.path.isfile(filename))
 
   ALLOWED_DIRS = set([
-    os.path.normcase(os.path.abspath(os.path.dirname(os.__file__)))
+    os.path.normcase(os.path.realpath(os.path.dirname(os.__file__))),
+    os.path.normcase(os.path.abspath(os.path.dirname(os.__file__))),
   ])
 
   NOT_ALLOWED_DIRS = set([
@@ -684,28 +771,86 @@ class FakeFile(file):
 
   ])
 
-  _application_paths = None
   _original_file = file
 
+  _root_path = None
+  _application_paths = None
+  _skip_files = None
+  _static_file_config_matcher = None
+
+  _allow_skipped_files = True
+
+  _availability_cache = {}
+
   @staticmethod
-  def SetAllowedPaths(application_paths):
-    """Sets the root path of the application that is currently running.
+  def SetAllowedPaths(root_path, application_paths):
+    """Configures which paths are allowed to be accessed.
 
     Must be called at least once before any file objects are created in the
     hardened environment.
 
     Args:
-      root_path: Path to the root of the application.
+      root_path: Absolute path to the root of the application.
+      application_paths: List of additional paths that the application may
+                         access, this must include the App Engine runtime but
+                         not the Python library directories.
     """
-    FakeFile._application_paths = set(os.path.abspath(path)
-                                      for path in application_paths)
+    FakeFile._application_paths = (set(os.path.realpath(path)
+                                       for path in application_paths) |
+                                   set(os.path.abspath(path)
+                                       for path in application_paths))
+    FakeFile._application_paths.add(root_path)
+
+    FakeFile._root_path = os.path.join(root_path, '')
+
+    FakeFile._availability_cache = {}
+
+  @staticmethod
+  def SetAllowSkippedFiles(allow_skipped_files):
+    """Configures access to files matching FakeFile._skip_files
+
+    Args:
+      allow_skipped_files: Boolean whether to allow access to skipped files
+    """
+    FakeFile._allow_skipped_files = allow_skipped_files
+    FakeFile._availability_cache = {}
+
+  @staticmethod
+  def SetSkippedFiles(skip_files):
+    """Sets which files in the application directory are to be ignored.
+
+    Must be called at least once before any file objects are created in the
+    hardened environment.
+
+    Must be called whenever the configuration was updated.
+
+    Args:
+      skip_files: Object with .match() method (e.g. compiled regexp).
+    """
+    FakeFile._skip_files = skip_files
+    FakeFile._availability_cache = {}
+
+  @staticmethod
+  def SetStaticFileConfigMatcher(static_file_config_matcher):
+    """Sets StaticFileConfigMatcher instance for checking if a file is static.
+
+    Must be called at least once before any file objects are created in the
+    hardened environment.
+
+    Must be called whenever the configuration was updated.
+
+    Args:
+      static_file_config_matcher: StaticFileConfigMatcher instance.
+    """
+    FakeFile._static_file_config_matcher = static_file_config_matcher
+    FakeFile._availability_cache = {}
 
   @staticmethod
   def IsFileAccessible(filename, normcase=os.path.normcase):
     """Determines if a file's path is accessible.
 
-    SetAllowedPaths() must be called before this method or else all file
-    accesses will raise an error.
+    SetAllowedPaths(), SetSkippedFiles() and SetStaticFileConfigMatcher() must
+    be called before this method or else all file accesses will raise an error.
 
     Args:
       filename: Path of the file to check (relative or absolute). May be a
@@ -720,6 +865,41 @@ class FakeFile(file):
 
     if os.path.isdir(logical_filename):
       logical_filename = os.path.join(logical_filename, 'foo')
+
+    result = FakeFile._availability_cache.get(logical_filename)
+    if result is None:
+      result = FakeFile._IsFileAccessibleNoCache(logical_filename,
+                                                 normcase=normcase)
+      FakeFile._availability_cache[logical_filename] = result
+    return result
+
+  @staticmethod
+  def _IsFileAccessibleNoCache(logical_filename, normcase=os.path.normcase):
+    """Determines if a file's path is accessible.
+
+    This is an internal part of the IsFileAccessible implementation.
+
+    Args:
+      logical_filename: Absolute path of the file to check.
+      normcase: Used for dependency injection.
+
+    Returns:
+      True if the file is accessible, False otherwise.
+    """
+    if IsPathInSubdirectories(logical_filename, [FakeFile._root_path],
+                              normcase=normcase):
+      relative_filename = logical_filename[len(FakeFile._root_path):]
+
+      if (not FakeFile._allow_skipped_files and
+          FakeFile._skip_files.match(relative_filename)):
+        logging.warning('Blocking access to skipped file "%s"',
+                        logical_filename)
+        return False
+
+      if FakeFile._static_file_config_matcher.IsStaticFile(relative_filename):
+        logging.warning('Blocking access to static file "%s"',
+                        logical_filename)
+        return False
 
     if logical_filename in FakeFile.ALLOWED_FILES:
       return True
@@ -740,7 +920,7 @@ class FakeFile(file):
 
     return False
 
-  def __init__(self, filename, mode='r', **kwargs):
+  def __init__(self, filename, mode='r', bufsize=-1, **kwargs):
     """Initializer. See file built-in documentation."""
     if mode not in FakeFile.ALLOWED_MODES:
       raise IOError('invalid mode: %s' % mode)
@@ -748,7 +928,7 @@ class FakeFile(file):
     if not FakeFile.IsFileAccessible(filename):
       raise IOError(errno.EACCES, 'file not accessible')
 
-    super(FakeFile, self).__init__(filename, mode, **kwargs)
+    super(FakeFile, self).__init__(filename, mode, bufsize, **kwargs)
 
 
 class RestrictedPathFunction(object):
@@ -854,8 +1034,6 @@ class HardenedModulesHook(object):
       indent = self._indent_level * '  '
       print >>sys.stderr, indent + (message % args)
 
-  EMPTY_MODULE_FILE = '<empty module>'
-
   _WHITE_LIST_C_MODULES = [
     'array',
     'binascii',
@@ -890,6 +1068,7 @@ class HardenedModulesHook(object):
     '_codecs_jp',
     '_codecs_kr',
     '_codecs_tw',
+    '_collections',
     '_csv',
     '_elementtree',
     '_functools',
@@ -925,6 +1104,7 @@ class HardenedModulesHook(object):
 
 
     'os': [
+      'access',
       'altsep',
       'curdir',
       'defpath',
@@ -973,6 +1153,8 @@ class HardenedModulesHook(object):
       'path',
       'pathsep',
       'R_OK',
+      'readlink',
+      'remove',
       'SEEK_CUR',
       'SEEK_END',
       'SEEK_SET',
@@ -982,6 +1164,7 @@ class HardenedModulesHook(object):
       'stat_result',
       'strerror',
       'TMP_MAX',
+      'unlink',
       'urandom',
       'walk',
       'WCOREDUMP',
@@ -998,38 +1181,22 @@ class HardenedModulesHook(object):
     ],
   }
 
-  _EMPTY_MODULES = [
-    'imp',
-    'ftplib',
-    'select',
-    'socket',
-    'tempfile',
-  ]
-
   _MODULE_OVERRIDES = {
+    'locale': {
+      'setlocale': FakeSetLocale,
+    },
+
     'os': {
+      'access': FakeAccess,
       'listdir': RestrictedPathFunction(os.listdir),
-      'lstat': RestrictedPathFunction(os.lstat),
+
+      'lstat': RestrictedPathFunction(os.stat),
+      'readlink': FakeReadlink,
+      'remove': FakeUnlink,
       'stat': RestrictedPathFunction(os.stat),
       'uname': FakeUname,
+      'unlink': FakeUnlink,
       'urandom': FakeURandom,
-    },
-
-    'socket': {
-      'AF_INET': None,
-      'SOCK_STREAM': None,
-      'SOCK_DGRAM': None,
-    },
-
-    'tempfile': {
-      'TemporaryFile': FakeTemporaryFile,
-      'gettempdir': NotImplementedFake,
-      'gettempprefix': NotImplementedFake,
-      'mkdtemp': NotImplementedFake,
-      'mkstemp': NotImplementedFake,
-      'mktemp': NotImplementedFake,
-      'NamedTemporaryFile': NotImplementedFake,
-      'tempdir': NotImplementedFake,
     },
   }
 
@@ -1066,8 +1233,7 @@ class HardenedModulesHook(object):
   @Trace
   def find_module(self, fullname, path=None):
     """See PEP 302."""
-    if (fullname in ('cPickle', 'thread') or
-        fullname in HardenedModulesHook._EMPTY_MODULES):
+    if fullname in ('cPickle', 'thread'):
       return self
 
     search_path = path
@@ -1075,7 +1241,8 @@ class HardenedModulesHook(object):
     try:
       for index, current_module in enumerate(all_modules):
         current_module_fullname = '.'.join(all_modules[:index + 1])
-        if current_module_fullname == fullname:
+        if (current_module_fullname == fullname and not
+            self.StubModuleExists(fullname)):
           self.FindModuleRestricted(current_module,
                                     current_module_fullname,
                                     search_path)
@@ -1093,6 +1260,21 @@ class HardenedModulesHook(object):
       return None
 
     return self
+
+  def StubModuleExists(self, name):
+    """Check if the named module has a stub replacement."""
+    if name in sys.builtin_module_names:
+      name = 'py_%s' % name
+    if name in dist.__all__:
+      return True
+    return False
+
+  def ImportStubModule(self, name):
+    """Import the stub module replacement for the specified module."""
+    if name in sys.builtin_module_names:
+      name = 'py_%s' % name
+    module = __import__(dist.__name__, {}, {}, [name])
+    return getattr(module, name)
 
   @Trace
   def FixModule(self, module):
@@ -1132,6 +1314,9 @@ class HardenedModulesHook(object):
           of packages, this will be None, which implies to look at __init__.py.
         pathname: String containing the full path of the module on disk.
         description: Tuple returned by imp.find_module().
+      However, in the case of an import using a path hook (e.g. a zipfile),
+      source_file will be a PEP-302-style loader object, pathname will be None,
+      and description will be a tuple filled with None values.
 
     Raises:
       ImportError exception if the requested module was found, but importing
@@ -1140,9 +1325,17 @@ class HardenedModulesHook(object):
       CouldNotFindModuleError exception if the request module could not even
       be found for import.
     """
-    try:
-      source_file, pathname, description = self._imp.find_module(submodule, search_path)
-    except ImportError:
+    if search_path is None:
+      search_path = [None] + sys.path
+    for path_entry in search_path:
+      result = self.FindPathHook(submodule, submodule_fullname, path_entry)
+      if result is not None:
+        source_file, pathname, description = result
+        if description == (None, None, None):
+          return result
+        else:
+          break
+    else:
       self.log('Could not find module "%s"', submodule_fullname)
       raise CouldNotFindModuleError()
 
@@ -1163,6 +1356,57 @@ class HardenedModulesHook(object):
 
     return source_file, pathname, description
 
+  def FindPathHook(self, submodule, submodule_fullname, path_entry):
+    """Helper for FindModuleRestricted to find a module in a sys.path entry.
+
+    Args:
+      submodule:
+      submodule_fullname:
+      path_entry: A single sys.path entry, or None representing the builtins.
+
+    Returns:
+      Either None (if nothing was found), or a triple (source_file, path_name,
+      description).  See the doc string for FindModuleRestricted() for the
+      meaning of the latter.
+    """
+    if path_entry is None:
+      if submodule_fullname in sys.builtin_module_names:
+        try:
+          result = self._imp.find_module(submodule)
+        except ImportError:
+          pass
+        else:
+          source_file, pathname, description = result
+          suffix, mode, file_type = description
+          if file_type == self._imp.C_BUILTIN:
+            return result
+      return None
+
+
+    if path_entry in sys.path_importer_cache:
+      importer = sys.path_importer_cache[path_entry]
+    else:
+      importer = None
+      for hook in sys.path_hooks:
+        try:
+          importer = hook(path_entry)
+          break
+        except ImportError:
+          pass
+      sys.path_importer_cache[path_entry] = importer
+
+    if importer is None:
+      try:
+        return self._imp.find_module(submodule, [path_entry])
+      except ImportError:
+        pass
+    else:
+      loader = importer.find_module(submodule)
+      if loader is not None:
+        return (loader, None, (None, None, None))
+
+    return None
+
   @Trace
   def LoadModuleRestricted(self,
                            submodule_fullname,
@@ -1176,9 +1420,11 @@ class HardenedModulesHook(object):
     Args:
       submodule_fullname: The fully qualified name of the module to find (e.g.,
         'foo.bar').
-      source_file: File-like object that contains the module's source code.
+      source_file: File-like object that contains the module's source code,
+        or a PEP-302-style loader object.
       pathname: String containing the full path of the module on disk.
-      description: Tuple returned by imp.find_module().
+      description: Tuple returned by imp.find_module(), or (None, None, None)
+        in case source_file is a PEP-302-style loader object.
 
     Returns:
       The new module.
@@ -1187,6 +1433,9 @@ class HardenedModulesHook(object):
       ImportError exception of the specified module could not be loaded for
       whatever reason.
     """
+    if description == (None, None, None):
+      return source_file.load_module(submodule_fullname)
+
     try:
       try:
         return self._imp.load_module(submodule_fullname,
@@ -1226,9 +1475,7 @@ class HardenedModulesHook(object):
     """
     module = self._imp.new_module(submodule_fullname)
 
-    if submodule_fullname in self._EMPTY_MODULES:
-      module.__file__ = self.EMPTY_MODULE_FILE
-    elif submodule_fullname == 'thread':
+    if submodule_fullname == 'thread':
       module.__dict__.update(self._dummy_thread.__dict__)
       module.__name__ = 'thread'
     elif submodule_fullname == 'cPickle':
@@ -1237,6 +1484,8 @@ class HardenedModulesHook(object):
     elif submodule_fullname == 'os':
       module.__dict__.update(self._os.__dict__)
       self._module_dict['os.path'] = module.path
+    elif self.StubModuleExists(submodule_fullname):
+      module = self.ImportStubModule(submodule_fullname)
     else:
       source_file, pathname, description = self.FindModuleRestricted(submodule, submodule_fullname, search_path)
       module = self.LoadModuleRestricted(submodule_fullname,
@@ -1307,7 +1556,8 @@ class HardenedModulesHook(object):
 
     Returns:
       Tuple (pathname, search_path, submodule) where:
-        pathname: String containing the full path of the module on disk.
+        pathname: String containing the full path of the module on disk,
+          or None if the module wasn't loaded from disk (e.g. from a zipfile).
         search_path: List of paths that belong to the found package's search
           path or None if found module is not a package.
         submodule: The relative name of the submodule that's being imported.
@@ -1349,6 +1599,8 @@ class HardenedModulesHook(object):
   def get_source(self, fullname):
     """See PEP 302 extensions."""
     full_path, search_path, submodule = self.GetModuleInfo(fullname)
+    if full_path is None:
+      return None
     source_file = open(full_path)
     try:
       return source_file.read()
@@ -1359,6 +1611,8 @@ class HardenedModulesHook(object):
   def get_code(self, fullname):
     """See PEP 302 extensions."""
     full_path, search_path, submodule = self.GetModuleInfo(fullname)
+    if full_path is None:
+      return None
     source_file = open(full_path)
     try:
       source_code = source_file.read()
@@ -1444,7 +1698,8 @@ def FindMissingInitFiles(cgi_path, module_fullname, isfile=os.path.isfile):
     depth_count += 1
 
   for index in xrange(depth_count):
-    current_init_file = os.path.join(module_base, '__init__.py')
+    current_init_file = os.path.abspath(
+        os.path.join(module_base, '__init__.py'))
 
     if not isfile(current_init_file):
       missing_init_files.append(current_init_file)
@@ -1503,7 +1758,7 @@ def LoadTargetModule(handler_path,
       if exc_value:
         import_error_message += ': ' + str(exc_value)
 
-      logging.error('Encountered error loading module "%s": %s',
+      logging.exception('Encountered error loading module "%s": %s',
                     module_fullname, import_error_message)
       missing_inits = FindMissingInitFiles(cgi_path, module_fullname)
       if missing_inits:
@@ -1652,7 +1907,12 @@ def ExecuteCGI(root_path,
     os.environ.clear()
     os.environ.update(env)
     before_path = sys.path[:]
-    os.chdir(os.path.dirname(cgi_path))
+    cgi_dir = os.path.normpath(os.path.dirname(cgi_path))
+    root_path = os.path.normpath(os.path.abspath(root_path))
+    if cgi_dir.startswith(root_path + os.sep):
+      os.chdir(cgi_dir)
+    else:
+      os.chdir(root_path)
 
     hook = HardenedModulesHook(sys.modules)
     sys.meta_path = [hook]
@@ -1663,7 +1923,7 @@ def ExecuteCGI(root_path,
     __builtin__.open = FakeFile
     types.FileType = FakeFile
 
-    __builtin__.buffer = NotImplementedFake
+    __builtin__.buffer = NotImplementedFakeClass
 
     logging.debug('Executing CGI with env:\n%s', pprint.pformat(env))
     try:
@@ -1680,23 +1940,16 @@ def ExecuteCGI(root_path,
 
     _ClearTemplateCache(sys.modules)
 
-    if reset_modules:
-      ClearAllButEncodingsModules(sys.modules)
-      sys.modules.update(old_module_dict)
-    else:
-      module_dict.update(sys.modules)
-      ClearAllButEncodingsModules(sys.modules)
-      sys.modules.update(old_module_dict)
+    module_dict.update(sys.modules)
+    ClearAllButEncodingsModules(sys.modules)
+    sys.modules.update(old_module_dict)
 
     __builtin__.__dict__.update(old_builtin)
     sys.argv = old_argv
     sys.stdin = old_stdin
     sys.stdout = old_stdout
 
-    for i in xrange(len(sys.path)):
-      sys.path.pop()
-    for import_path in before_path:
-      sys.path.append(import_path)
+    sys.path[:] = before_path
 
     os.environ.clear()
     os.environ.update(old_env)
@@ -1845,8 +2098,12 @@ class PathAdjuster(object):
     return path
 
 
-class StaticFileMimeTypeMatcher(object):
-  """Computes mime type based on URLMap and file extension.
+class StaticFileConfigMatcher(object):
+  """Keeps track of file/directory specific application configuration.
+
+  Specifically:
+  - Computes mime type based on URLMap and file extension.
+  - Decides on cache expiration time based on URLMap and default expiration.
 
   To determine the mime type, we first see if there is any mime-type property
   on each URLMap entry. If non is specified, we use the mimetypes module to
@@ -1856,7 +2113,8 @@ class StaticFileMimeTypeMatcher(object):
 
   def __init__(self,
                url_map_list,
-               path_adjuster):
+               path_adjuster,
+               default_expiration):
     """Initializer.
 
     Args:
@@ -1864,50 +2122,95 @@ class StaticFileMimeTypeMatcher(object):
         If empty or None, then we always use the mime type chosen by the
         mimetypes module.
       path_adjuster: PathAdjuster object used to adjust application file paths.
+      default_expiration: String describing default expiration time for browser
+        based caching of static files.  If set to None this disallows any
+        browser caching of static content.
     """
+    if default_expiration is not None:
+      self._default_expiration = appinfo.ParseExpiration(default_expiration)
+    else:
+      self._default_expiration = None
+
     self._patterns = []
 
     if url_map_list:
       for entry in url_map_list:
-        if entry.mime_type is None:
-          continue
         handler_type = entry.GetHandlerType()
         if handler_type not in (appinfo.STATIC_FILES, appinfo.STATIC_DIR):
           continue
 
         if handler_type == appinfo.STATIC_FILES:
-          regex = entry.upload
+          regex = entry.upload + '$'
         else:
-          static_dir = entry.static_dir
-          if static_dir[-1] == '/':
-            static_dir = static_dir[:-1]
-          regex = '/'.join((entry.static_dir, r'(.*)'))
+          path = entry.static_dir
+          if path[-1] == '/':
+            path = path[:-1]
+          regex = re.escape(path + os.path.sep) + r'(.*)'
 
-        adjusted_regex = r'^%s$' % path_adjuster.AdjustPath(regex)
         try:
-          path_re = re.compile(adjusted_regex)
+          path_re = re.compile(regex)
         except re.error, e:
-          raise InvalidAppConfigError('regex does not compile: %s' % e)
+          raise InvalidAppConfigError('regex %s does not compile: %s' %
+                                      (regex, e))
 
-        self._patterns.append((path_re, entry.mime_type))
+        if self._default_expiration is None:
+          expiration = 0
+        elif entry.expiration is None:
+          expiration = self._default_expiration
+        else:
+          expiration = appinfo.ParseExpiration(entry.expiration)
+
+        self._patterns.append((path_re, entry.mime_type, expiration))
+
+  def IsStaticFile(self, path):
+    """Tests if the given path points to a "static" file.
+
+    Args:
+      path: String containing the file's path relative to the app.
+
+    Returns:
+      Boolean, True if the file was configured to be static.
+    """
+    for (path_re, _, _) in self._patterns:
+      if path_re.match(path):
+        return True
+    return False
 
   def GetMimeType(self, path):
     """Returns the mime type that we should use when serving the specified file.
 
     Args:
-      path: String containing the file's path on disk.
+      path: String containing the file's path relative to the app.
 
     Returns:
       String containing the mime type to use. Will be 'application/octet-stream'
       if we have no idea what it should be.
     """
-    for (path_re, mime_type) in self._patterns:
-      the_match = path_re.match(path)
-      if the_match:
-        return mime_type
+    for (path_re, mime_type, expiration) in self._patterns:
+      if mime_type is not None:
+        the_match = path_re.match(path)
+        if the_match:
+          return mime_type
 
     filename, extension = os.path.splitext(path)
     return mimetypes.types_map.get(extension, 'application/octet-stream')
+
+  def GetExpiration(self, path):
+    """Returns the cache expiration duration to be users for the given file.
+
+    Args:
+      path: String containing the file's path relative to the app.
+
+    Returns:
+      Integer number of seconds to be used for browser cache expiration time.
+    """
+    for (path_re, mime_type, expiration) in self._patterns:
+      the_match = path_re.match(path)
+      if the_match:
+        return expiration
+
+    return self._default_expiration or 0
+
 
 
 def ReadDataFile(data_path, openfile=file):
@@ -1947,18 +2250,18 @@ class FileDispatcher(URLDispatcher):
 
   def __init__(self,
                path_adjuster,
-               static_file_mime_type_matcher,
+               static_file_config_matcher,
                read_data_file=ReadDataFile):
     """Initializer.
 
     Args:
       path_adjuster: Instance of PathAdjuster to use for finding absolute
         paths of data files on disk.
-      static_file_mime_type_matcher: StaticFileMimeTypeMatcher object.
+      static_file_config_matcher: StaticFileConfigMatcher object.
       read_data_file: Used for dependency injection.
     """
     self._path_adjuster = path_adjuster
-    self._static_file_mime_type_matcher = static_file_mime_type_matcher
+    self._static_file_config_matcher = static_file_config_matcher
     self._read_data_file = read_data_file
 
   def Dispatch(self,
@@ -1971,10 +2274,16 @@ class FileDispatcher(URLDispatcher):
     """Reads the file and returns the response status and data."""
     full_path = self._path_adjuster.AdjustPath(path)
     status, data = self._read_data_file(full_path)
-    content_type = self._static_file_mime_type_matcher.GetMimeType(full_path)
+    content_type = self._static_file_config_matcher.GetMimeType(path)
+    expiration = self._static_file_config_matcher.GetExpiration(path)
 
     outfile.write('Status: %d\r\n' % status)
     outfile.write('Content-type: %s\r\n' % content_type)
+    if expiration:
+      outfile.write('Expires: %s\r\n'
+                    % email.Utils.formatdate(time.time() + expiration,
+                                             usegmt=True))
+      outfile.write('Cache-Control: public, max-age=%i\r\n' % expiration)
     outfile.write('\r\n')
     outfile.write(data)
 
@@ -1983,8 +2292,31 @@ class FileDispatcher(URLDispatcher):
     return 'File dispatcher'
 
 
-def RewriteResponse(response_file):
-  """Interprets server-side headers and adjusts the HTTP response accordingly.
+_IGNORE_RESPONSE_HEADERS = frozenset([
+    'content-encoding', 'accept-encoding', 'transfer-encoding',
+    'server', 'date',
+    ])
+
+
+def IgnoreHeadersRewriter(status_code, status_message, headers, body):
+  """Ignore specific response headers.
+
+  Certain response headers cannot be modified by an Application.  For a
+  complete list of these headers please see:
+
+    http://code.google.com/appengine/docs/webapp/responseclass.html#Disallowed_HTTP_Response_Headers
+
+  This rewriter simply removes those headers.
+  """
+  for h in _IGNORE_RESPONSE_HEADERS:
+    if h in headers:
+      del headers[h]
+
+  return status_code, status_message, headers, body
+
+
+def ParseStatusRewriter(status_code, status_message, headers, body):
+  """Parse status header, if it exists.
 
   Handles the server-side 'status' header, which instructs the server to change
   the HTTP response code accordingly. Handles the 'location' header, which
@@ -1994,10 +2326,113 @@ def RewriteResponse(response_file):
 
   If the 'status' header supplied by the client is invalid, this method will
   set the response to a 500 with an error message as content.
+  """
+  location_value = headers.getheader('location')
+  status_value = headers.getheader('status')
+  if status_value:
+    response_status = status_value
+    del headers['status']
+  elif location_value:
+    response_status = '%d Redirecting' % httplib.FOUND
+  else:
+    return status_code, status_message, headers, body
+
+  status_parts = response_status.split(' ', 1)
+  status_code, status_message = (status_parts + [''])[:2]
+  try:
+    status_code = int(status_code)
+  except ValueError:
+    status_code = 500
+    body = cStringIO.StringIO('Error: Invalid "status" header value returned.')
+
+  return status_code, status_message, headers, body
+
+
+def CacheRewriter(status_code, status_message, headers, body):
+  """Update the cache header."""
+  if not 'Cache-Control' in headers:
+    headers['Cache-Control'] = 'no-cache'
+  return status_code, status_message, headers, body
+
+
+def ContentLengthRewriter(status_code, status_message, headers, body):
+  """Rewrite the Content-Length header.
+
+  Even though Content-Length is not a user modifiable header, App Engine
+  sends a correct Content-Length to the user based on the actual response.
+  """
+  current_position = body.tell()
+  body.seek(0, 2)
+
+  headers['Content-Length'] = str(body.tell() - current_position)
+  body.seek(current_position)
+  return status_code, status_message, headers, body
+
+
+def CreateResponseRewritersChain():
+  """Create the default response rewriter chain.
+
+  A response rewriter is the a function that gets a final chance to change part
+  of the dev_appservers response.  A rewriter is not like a dispatcher in that
+  it is called after every request has been handled by the dispatchers
+  regardless of which dispatcher was used.
+
+  The order in which rewriters are registered will be the order in which they
+  are used to rewrite the response.  Modifications from earlier rewriters
+  are used as input to later rewriters.
+
+  A response rewriter is a function that can rewrite the request in any way.
+  Thefunction can returned modified values or the original values it was
+  passed.
+
+  A rewriter function has the following parameters and return values:
+
+    Args:
+      status_code: Status code of response from dev_appserver or previous
+        rewriter.
+      status_message: Text corresponding to status code.
+      headers: mimetools.Message instance with parsed headers.  NOTE: These
+        headers can contain its own 'status' field, but the default
+        dev_appserver implementation will remove this.  Future rewriters
+        should avoid re-introducing the status field and return new codes
+        instead.
+      body: File object containing the body of the response.  This position of
+        this file may not be at the start of the file.  Any content before the
+        files position is considered not to be part of the final body.
+
+     Returns:
+      status_code: Rewritten status code or original.
+      status_message: Rewritter message or original.
+      headers: Rewritten/modified headers or original.
+      body: Rewritten/modified body or original.
+
+  Returns:
+    List of response rewriters.
+  """
+  return [IgnoreHeadersRewriter,
+          ParseStatusRewriter,
+          CacheRewriter,
+          ContentLengthRewriter,
+  ]
+
+
+def RewriteResponse(response_file, response_rewriters=None):
+  """Allows final rewrite of dev_appserver response.
+
+  This function receives the unparsed HTTP response from the application
+  or internal handler, parses out the basic structure and feeds that structure
+  in to a chain of response rewriters.
+
+  It also makes sure the final HTTP headers are properly terminated.
+
+  For more about response rewriters, please see documentation for
+  CreateResponeRewritersChain.
 
   Args:
     response_file: File-like object containing the full HTTP response including
       the response code, all headers, and the request body.
+    response_rewriters: A list of response rewriters.  If none is provided it
+      will create a new chain using CreateResponseRewritersChain.
 
   Returns:
     Tuple (status_code, status_message, header, body) where:
@@ -2008,32 +2443,19 @@ def RewriteResponse(response_file):
         a trailing new-line (CRLF).
       body: String containing the body of the response.
   """
+  if response_rewriters is None:
+    response_rewriters = CreateResponseRewritersChain()
+
+  status_code = 200
+  status_message = 'Good to go'
   headers = mimetools.Message(response_file)
 
-  response_status = '%d Good to go' % httplib.OK
-
-  location_value = headers.getheader('location')
-  status_value = headers.getheader('status')
-  if status_value:
-    response_status = status_value
-    del headers['status']
-  elif location_value:
-    response_status = '%d Redirecting' % httplib.FOUND
-
-  if not 'Cache-Control' in headers:
-    headers['Cache-Control'] = 'no-cache'
-
-  status_parts = response_status.split(' ', 1)
-  status_code, status_message = (status_parts + [''])[:2]
-  try:
-    status_code = int(status_code)
-  except ValueError:
-    status_code = 500
-    body = 'Error: Invalid "status" header value returned.'
-  else:
-    body = response_file.read()
-
-  headers['content-length'] = str(len(body))
+  for response_rewriter in response_rewriters:
+    status_code, status_message, headers, response_file = response_rewriter(
+        status_code,
+        status_message,
+        headers,
+        response_file)
 
   header_list = []
   for header in headers.headers:
@@ -2042,7 +2464,7 @@ def RewriteResponse(response_file):
     header_list.append(header)
 
   header_data = '\r\n'.join(header_list) + '\r\n'
-  return status_code, status_message, header_data, body
+  return status_code, status_message, header_data, response_file.read()
 
 
 class ModuleManager(object):
@@ -2062,7 +2484,7 @@ class ModuleManager(object):
     """
     self._modules = modules
     self._default_modules = self._modules.copy()
-
+    self._save_path_hooks = sys.path_hooks[:]
     self._modification_times = {}
 
   @staticmethod
@@ -2079,7 +2501,7 @@ class ModuleManager(object):
       __file__ attribute, None will be returned.
       """
     module_file = getattr(module, '__file__', None)
-    if not module_file or module_file == HardenedModulesHook.EMPTY_MODULE_FILE:
+    if module_file is None:
       return None
 
     source_file = module_file[:module_file.rfind('py') + 2]
@@ -2129,6 +2551,7 @@ class ModuleManager(object):
     """Clear modules so that when request is run they are reloaded."""
     self._modules.clear()
     self._modules.update(self._default_modules)
+    sys.path_hooks[:] = self._save_path_hooks
 
 
 def _ClearTemplateCache(module_dict=sys.modules):
@@ -2142,7 +2565,10 @@ def _ClearTemplateCache(module_dict=sys.modules):
     template_module.template_cache.clear()
 
 
-def CreateRequestHandler(root_path, login_url, require_indexes=False):
+def CreateRequestHandler(root_path,
+                         login_url,
+                         require_indexes=False,
+                         static_caching=True):
   """Creates a new BaseHTTPRequestHandler sub-class for use with the Python
   BaseHTTPServer module's HTTP server.
 
@@ -2155,6 +2581,7 @@ def CreateRequestHandler(root_path, login_url, require_indexes=False):
     root_path: Path to the root of the application running on the server.
     login_url: Relative URL which should be used for handling user logins.
     require_indexes: True if index.yaml is read-only gospel; default False.
+    static_caching: True if browser caching of static files should be allowed.
 
   Returns:
     Sub-class of BaseHTTPRequestHandler.
@@ -2165,6 +2592,8 @@ def CreateRequestHandler(root_path, login_url, require_indexes=False):
     index_yaml_updater = None
   else:
     index_yaml_updater = dev_appserver_index.IndexYamlUpdater(root_path)
+
+  application_config_cache = AppConfigCache()
 
   class DevAppServerRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     """Dispatches URLs using patterns from a URLMatcher, which is created by
@@ -2186,6 +2615,10 @@ def CreateRequestHandler(root_path, login_url, require_indexes=False):
     module_dict = application_module_dict
     module_manager = ModuleManager(application_module_dict)
 
+    config_cache = application_config_cache
+
+    rewriter_chain = CreateResponseRewritersChain()
+
     def __init__(self, *args, **kwargs):
       """Initializer.
 
@@ -2194,6 +2627,10 @@ def CreateRequestHandler(root_path, login_url, require_indexes=False):
           of the super class.
       """
       BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
+
+    def version_string(self):
+      """Returns server's version string used for Server HTTP header"""
+      return self.server_version
 
     def do_GET(self):
       """Handle GET requests."""
@@ -2252,8 +2689,15 @@ def CreateRequestHandler(root_path, login_url, require_indexes=False):
         implicit_matcher = CreateImplicitMatcher(self.module_dict,
                                                  root_path,
                                                  login_url)
-        config, explicit_matcher = LoadAppConfig(root_path, self.module_dict)
+        config, explicit_matcher = LoadAppConfig(root_path, self.module_dict,
+                                                 cache=self.config_cache,
+                                                 static_caching=static_caching)
+        if config.api_version != API_VERSION:
+          logging.error("API versions cannot be switched dynamically: %r != %r"
+                        % (config.api_version, API_VERSION))
+          sys.exit(1)
         env_dict['CURRENT_VERSION_ID'] = config.version + ".1"
+        env_dict['APPLICATION_ID'] = config.application
         dispatcher = MatcherDispatcher(login_url,
                                        [implicit_matcher, explicit_matcher])
 
@@ -2262,6 +2706,15 @@ def CreateRequestHandler(root_path, login_url, require_indexes=False):
 
         infile = cStringIO.StringIO(self.rfile.read(
             int(self.headers.get('content-length', 0))))
+
+        request_size = len(infile.getvalue())
+        if request_size > MAX_REQUEST_SIZE:
+          msg = ('HTTP request was too large: %d.  The limit is: %d.'
+                 % (request_size, MAX_REQUEST_SIZE))
+          logging.error(msg)
+          self.send_response(httplib.REQUEST_ENTITY_TOO_LARGE, msg)
+          return
+
         outfile = cStringIO.StringIO()
         try:
           dispatcher.Dispatch(self.path,
@@ -2275,7 +2728,20 @@ def CreateRequestHandler(root_path, login_url, require_indexes=False):
 
         outfile.flush()
         outfile.seek(0)
-        status_code, status_message, header_data, body = RewriteResponse(outfile)
+
+        status_code, status_message, header_data, body = RewriteResponse(outfile, self.rewriter_chain)
+
+        runtime_response_size = len(outfile.getvalue())
+        if runtime_response_size > MAX_RUNTIME_RESPONSE_SIZE:
+          status_code = 403
+          status_message = 'Forbidden'
+          new_headers = []
+          for header in header_data.split('\n'):
+            if not header.lower().startswith('content-length'):
+              new_headers.append(header)
+          header_data = '\n'.join(new_headers)
+          body = ('HTTP response was too large: %d.  The limit is: %d.'
+                  % (runtime_response_size, MAX_RUNTIME_RESPONSE_SIZE))
 
       except yaml_errors.EventListenerError, e:
         title = 'Fatal error when loading application configuration'
@@ -2337,22 +2803,24 @@ def ReadAppConfig(appinfo_path, parse_app_config=appinfo.LoadSingleAppInfo):
   """
   try:
     appinfo_file = file(appinfo_path, 'r')
-    try:
-      return parse_app_config(appinfo_file)
-    finally:
-      appinfo_file.close()
   except IOError, e:
     raise InvalidAppConfigError(
       'Application configuration could not be read from "%s"' % appinfo_path)
+  try:
+    return parse_app_config(appinfo_file)
+  finally:
+    appinfo_file.close()
 
 
 def CreateURLMatcherFromMaps(root_path,
                              url_map_list,
                              module_dict,
+                             default_expiration,
                              create_url_matcher=URLMatcher,
                              create_cgi_dispatcher=CGIDispatcher,
                              create_file_dispatcher=FileDispatcher,
-                             create_path_adjuster=PathAdjuster):
+                             create_path_adjuster=PathAdjuster,
+                             normpath=os.path.normpath):
   """Creates a URLMatcher instance from URLMap.
 
   Creates all of the correct URLDispatcher instances to handle the various
@@ -2366,6 +2834,9 @@ def CreateURLMatcherFromMaps(root_path,
     module_dict: Dictionary in which application-loaded modules should be
       preserved between requests. This dictionary must be separate from the
       sys.modules dictionary.
+    default_expiration: String describing default expiration time for browser
+      based caching of static files.  If set to None this disallows any
+      browser caching of static content.
     create_url_matcher, create_cgi_dispatcher, create_file_dispatcher,
     create_path_adjuster: Used for dependency injection.
 
@@ -2375,8 +2846,13 @@ def CreateURLMatcherFromMaps(root_path,
   url_matcher = create_url_matcher()
   path_adjuster = create_path_adjuster(root_path)
   cgi_dispatcher = create_cgi_dispatcher(module_dict, root_path, path_adjuster)
+  static_file_config_matcher = StaticFileConfigMatcher(url_map_list,
+                                                       path_adjuster,
+                                                       default_expiration)
   file_dispatcher = create_file_dispatcher(path_adjuster,
-      StaticFileMimeTypeMatcher(url_map_list, path_adjuster))
+                                           static_file_config_matcher)
+
+  FakeFile.SetStaticFileConfigMatcher(static_file_config_matcher)
 
   for url_map in url_map_list:
     admin_only = url_map.login == appinfo.LOGIN_ADMIN
@@ -2402,7 +2878,8 @@ def CreateURLMatcherFromMaps(root_path,
         backref = r'\\1'
       else:
         backref = r'\1'
-      path = os.path.normpath(path) + os.path.sep + backref
+      path = (normpath(path).replace('\\', '\\\\') +
+              os.path.sep + backref)
 
     url_matcher.AddURL(regex,
                        dispatcher,
@@ -2412,8 +2889,26 @@ def CreateURLMatcherFromMaps(root_path,
   return url_matcher
 
 
+class AppConfigCache(object):
+  """Cache used by LoadAppConfig.
+
+  If given to LoadAppConfig instances of this class are used to cache contents
+  of the app config (app.yaml or app.yml) and the Matcher created from it.
+
+  Code outside LoadAppConfig should treat instances of this class as opaque
+  objects and not access its members.
+  """
+
+  path = None
+  mtime = None
+  config = None
+  matcher = None
+
+
 def LoadAppConfig(root_path,
                   module_dict,
+                  cache=None,
+                  static_caching=True,
                   read_app_config=ReadAppConfig,
                   create_matcher=CreateURLMatcherFromMaps):
   """Creates a Matcher instance for an application configuration file.
@@ -2426,28 +2921,78 @@ def LoadAppConfig(root_path,
     module_dict: Dictionary in which application-loaded modules should be
       preserved between requests. This dictionary must be separate from the
       sys.modules dictionary.
-    read_url_map, create_matcher: Used for dependency injection.
+    cache: Instance of AppConfigCache or None.
+    static_caching: True if browser caching of static files should be allowed.
+    read_app_config, create_matcher: Used for dependency injection.
 
   Returns:
      tuple: (AppInfoExternal, URLMatcher)
   """
-
   for appinfo_path in [os.path.join(root_path, 'app.yaml'),
                        os.path.join(root_path, 'app.yml')]:
 
     if os.path.isfile(appinfo_path):
+      if cache is not None:
+        mtime = os.path.getmtime(appinfo_path)
+        if cache.path == appinfo_path and cache.mtime == mtime:
+          return (cache.config, cache.matcher)
+
+        cache.config = cache.matcher = cache.path = None
+        cache.mtime = mtime
+
       try:
         config = read_app_config(appinfo_path, appinfo.LoadSingleAppInfo)
 
+        if static_caching:
+          if config.default_expiration:
+            default_expiration = config.default_expiration
+          else:
+            default_expiration = '0'
+        else:
+          default_expiration = None
+
         matcher = create_matcher(root_path,
                                  config.handlers,
-                                 module_dict)
+                                 module_dict,
+                                 default_expiration)
+
+        FakeFile.SetSkippedFiles(config.skip_files)
+
+        if cache is not None:
+          cache.path = appinfo_path
+          cache.config = config
+          cache.matcher = matcher
 
         return (config, matcher)
       except gexcept.AbstractMethod:
         pass
 
   raise AppConfigNotFoundError
+
+
+def ReadCronConfig(croninfo_path, parse_cron_config=croninfo.LoadSingleCron):
+  """Reads cron.yaml file and returns a list of CronEntry instances.
+
+  Args:
+    croninfo_path: String containing the path to the cron.yaml file.
+    parse_cron_config: Used for dependency injection.
+
+  Returns:
+    A CronInfoExternal object.
+
+  Raises:
+    If the config file is unreadable, empty or invalid, this function will
+    raise an InvalidAppConfigError or a MalformedCronConfiguration exception.
+    """
+  try:
+    croninfo_file = file(croninfo_path, 'r')
+  except IOError, e:
+    raise InvalidAppConfigError(
+        'Cron configuration could not be read from "%s"' % croninfo_path)
+  try:
+    return parse_cron_config(croninfo_file)
+  finally:
+    croninfo_file.close()
 
 
 def SetupStubs(app_id, **config):
@@ -2481,6 +3026,8 @@ def SetupStubs(app_id, **config):
   enable_sendmail = config.get('enable_sendmail', False)
   show_mail_body = config.get('show_mail_body', False)
   remove = config.get('remove', os.remove)
+
+  os.environ['APPLICATION_ID'] = app_id
 
   if clear_datastore:
     for path in (datastore_path, history_path):
@@ -2523,6 +3070,10 @@ def SetupStubs(app_id, **config):
   apiproxy_stub_map.apiproxy.RegisterStub(
     'memcache',
     memcache_stub.MemcacheServiceStub())
+
+  apiproxy_stub_map.apiproxy.RegisterStub(
+    'capability_service',
+    capability_stub.CapabilityServiceStub())
 
   try:
     from google.appengine.api.images import images_stub
@@ -2612,8 +3163,16 @@ def CreateServer(root_path,
                  template_dir,
                  serve_address='',
                  require_indexes=False,
-                 python_path_list=sys.path):
+                 allow_skipped_files=False,
+                 static_caching=True,
+                 python_path_list=sys.path,
+                 sdk_dir=os.path.dirname(os.path.dirname(google.__file__))):
   """Creates an new HTTPServer for an application.
+
+  The sdk_dir argument must be specified for the directory storing all code for
+  the SDK so as to allow for the sandboxing of module access to work for any
+  and all SDK code. While typically this is where the 'google' package lives,
+  it can be in another location because of API version support.
 
   Args:
     root_path: String containing the path to the root directory of the
@@ -2624,20 +3183,25 @@ def CreateServer(root_path,
       are stored.
     serve_address: Address on which the server should serve.
     require_indexes: True if index.yaml is read-only gospel; default False.
+    static_caching: True if browser caching of static files should be allowed.
     python_path_list: Used for dependency injection.
+    sdk_dir: Directory where the SDK is stored.
 
   Returns:
     Instance of BaseHTTPServer.HTTPServer that's ready to start accepting.
   """
-  absolute_root_path = os.path.abspath(root_path)
+  absolute_root_path = os.path.realpath(root_path)
 
   SetupTemplates(template_dir)
-  FakeFile.SetAllowedPaths([absolute_root_path,
-                            os.path.dirname(os.path.dirname(google.__file__)),
+  FakeFile.SetAllowedPaths(absolute_root_path,
+                           [sdk_dir,
                             template_dir])
+  FakeFile.SetAllowSkippedFiles(allow_skipped_files)
 
-  handler_class = CreateRequestHandler(absolute_root_path, login_url,
-                                       require_indexes)
+  handler_class = CreateRequestHandler(absolute_root_path,
+                                       login_url,
+                                       require_indexes,
+                                       static_caching)
 
   if absolute_root_path not in python_path_list:
     python_path_list.insert(0, absolute_root_path)

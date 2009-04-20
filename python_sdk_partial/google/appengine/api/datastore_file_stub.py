@@ -38,15 +38,16 @@ per-transaction, so they should only be used by one tx at a time.
 import datetime
 import logging
 import os
-import pickle
 import struct
 import sys
 import tempfile
 import threading
-import types
 import warnings
 
+import cPickle as pickle
+
 from google.appengine.api import api_base_pb
+from google.appengine.api import apiproxy_stub
 from google.appengine.api import datastore
 from google.appengine.api import datastore_admin
 from google.appengine.api import datastore_errors
@@ -65,7 +66,38 @@ entity_pb.Reference.__hash__ = lambda self: hash(self.Encode())
 datastore_pb.Query.__hash__ = lambda self: hash(self.Encode())
 
 
-class DatastoreFileStub(object):
+_MAXIMUM_RESULTS = 1000
+
+
+_MAX_QUERY_OFFSET = 1000
+
+
+_MAX_QUERY_COMPONENTS = 100
+
+
+class _StoredEntity(object):
+  """Simple wrapper around an entity stored by the stub.
+
+  Public properties:
+    protobuf: Native protobuf Python object, entity_pb.EntityProto.
+    encoded_protobuf: Encoded binary representation of above protobuf.
+    native: datastore.Entity instance.
+  """
+
+  def __init__(self, entity):
+    """Create a _StoredEntity object and store an entity.
+
+    Args:
+      entity: entity_pb.EntityProto to store.
+    """
+    self.protobuf = entity
+
+    self.encoded_protobuf = entity.Encode()
+
+    self.native = datastore.Entity._FromPb(entity)
+
+
+class DatastoreFileStub(apiproxy_stub.APIProxyStub):
   """ Persistent stub for the Python datastore API.
 
   Stores all entities in memory, and persists them to a file as pickled
@@ -73,8 +105,47 @@ class DatastoreFileStub(object):
   and is backed by files on disk.
   """
 
-  def __init__(self, app_id, datastore_file, history_file,
-               require_indexes=False):
+  _PROPERTY_TYPE_TAGS = {
+    datastore_types.Blob: entity_pb.PropertyValue.kstringValue,
+    bool: entity_pb.PropertyValue.kbooleanValue,
+    datastore_types.Category: entity_pb.PropertyValue.kstringValue,
+    datetime.datetime: entity_pb.PropertyValue.kint64Value,
+    datastore_types.Email: entity_pb.PropertyValue.kstringValue,
+    float: entity_pb.PropertyValue.kdoubleValue,
+    datastore_types.GeoPt: entity_pb.PropertyValue.kPointValueGroup,
+    datastore_types.IM: entity_pb.PropertyValue.kstringValue,
+    int: entity_pb.PropertyValue.kint64Value,
+    datastore_types.Key: entity_pb.PropertyValue.kReferenceValueGroup,
+    datastore_types.Link: entity_pb.PropertyValue.kstringValue,
+    long: entity_pb.PropertyValue.kint64Value,
+    datastore_types.PhoneNumber: entity_pb.PropertyValue.kstringValue,
+    datastore_types.PostalAddress: entity_pb.PropertyValue.kstringValue,
+    datastore_types.Rating: entity_pb.PropertyValue.kint64Value,
+    str: entity_pb.PropertyValue.kstringValue,
+    datastore_types.Text: entity_pb.PropertyValue.kstringValue,
+    type(None): 0,
+    unicode: entity_pb.PropertyValue.kstringValue,
+    users.User: entity_pb.PropertyValue.kUserValueGroup,
+    }
+
+  WRITE_ONLY = entity_pb.CompositeIndex.WRITE_ONLY
+  READ_WRITE = entity_pb.CompositeIndex.READ_WRITE
+  DELETED = entity_pb.CompositeIndex.DELETED
+  ERROR = entity_pb.CompositeIndex.ERROR
+
+  _INDEX_STATE_TRANSITIONS = {
+    WRITE_ONLY: frozenset((READ_WRITE, DELETED, ERROR)),
+    READ_WRITE: frozenset((DELETED,)),
+    ERROR: frozenset((DELETED,)),
+    DELETED: frozenset((ERROR,)),
+  }
+
+  def __init__(self,
+               app_id,
+               datastore_file,
+               history_file,
+               require_indexes=False,
+               service_name='datastore_v3'):
     """Constructor.
 
     Initializes and loads the datastore from the backing files, if they exist.
@@ -87,14 +158,19 @@ class DatastoreFileStub(object):
           datastore_file.
       require_indexes: bool, default False.  If True, composite indexes must
           exist in index.yaml for queries that need them.
+      service_name: Service name expected for all calls.
     """
+    super(DatastoreFileStub, self).__init__(service_name)
 
-    assert isinstance(app_id, types.StringTypes) and app_id != ''
+
+    assert isinstance(app_id, basestring) and app_id != ''
     self.__app_id = app_id
     self.__datastore_file = datastore_file
     self.__history_file = history_file
 
     self.__entities = {}
+
+    self.__schema_cache = {}
 
     self.__tx_snapshot = {}
 
@@ -129,6 +205,47 @@ class DatastoreFileStub(object):
     self.__queries = {}
     self.__transactions = {}
     self.__query_history = {}
+    self.__schema_cache = {}
+
+  def _AppKindForKey(self, key):
+    """ Get (app, kind) tuple from given key.
+
+    The (app, kind) tuple is used as an index into several internal
+    dictionaries, e.g. __entities.
+
+    Args:
+      key: entity_pb.Reference
+
+    Returns:
+      Tuple (app, kind), both are unicode strings.
+    """
+    last_path = key.path().element_list()[-1]
+    return key.app(), last_path.type()
+
+  def _StoreEntity(self, entity):
+    """ Store the given entity.
+
+    Args:
+      entity: entity_pb.EntityProto
+    """
+    key = entity.key()
+    app_kind = self._AppKindForKey(key)
+    if app_kind not in self.__entities:
+      self.__entities[app_kind] = {}
+    self.__entities[app_kind][key] = _StoredEntity(entity)
+
+    if app_kind in self.__schema_cache:
+      del self.__schema_cache[app_kind]
+
+  READ_PB_EXCEPTIONS = (ProtocolBuffer.ProtocolBufferDecodeError, LookupError,
+                        TypeError, ValueError)
+  READ_ERROR_MSG = ('Data in %s is corrupt or a different version. '
+                    'Try running with the --clear_datastore flag.\n%r')
+  READ_PY250_MSG = ('Are you using FloatProperty and/or GeoPtProperty? '
+                    'Unfortunately loading float values from the datastore '
+                    'file does not work with Python 2.5.0. '
+                    'Please upgrade to a newer Python 2.5 release or use '
+                    'the --clear_datastore flag.\n')
 
   def Read(self):
     """ Reads the datastore and history files into memory.
@@ -144,24 +261,25 @@ class DatastoreFileStub(object):
 
     Also sets __next_id to one greater than the highest id allocated so far.
     """
-    pb_exceptions = (ProtocolBuffer.ProtocolBufferDecodeError, LookupError,
-                     TypeError, ValueError)
-    error_msg = ('Data in %s is corrupt or a different version. '
-                 'Try running with the --clear_datastore flag.\n%r')
-
     if self.__datastore_file and self.__datastore_file != '/dev/null':
       for encoded_entity in self.__ReadPickled(self.__datastore_file):
         try:
           entity = entity_pb.EntityProto(encoded_entity)
-        except pb_exceptions, e:
-          raise datastore_errors.InternalError(error_msg %
+        except self.READ_PB_EXCEPTIONS, e:
+          raise datastore_errors.InternalError(self.READ_ERROR_MSG %
                                                (self.__datastore_file, e))
+        except struct.error, e:
+          if (sys.version_info[0:3] == (2, 5, 0)
+              and e.message.startswith('unpack requires a string argument')):
+            raise datastore_errors.InternalError(self.READ_PY250_MSG +
+                                                 self.READ_ERROR_MSG %
+                                                 (self.__datastore_file, e))
+          else:
+            raise
+
+        self._StoreEntity(entity)
 
         last_path = entity.key().path().element_list()[-1]
-        app_kind = (entity.key().app(), last_path.type())
-        kind_dict = self.__entities.setdefault(app_kind, {})
-        kind_dict[entity.key()] = entity
-
         if last_path.has_id() and last_path.id() >= self.__next_id:
           self.__next_id = last_path.id() + 1
 
@@ -169,8 +287,8 @@ class DatastoreFileStub(object):
       for encoded_query, count in self.__ReadPickled(self.__history_file):
         try:
           query_pb = datastore_pb.Query(encoded_query)
-        except pb_exceptions, e:
-          raise datastore_errors.InternalError(error_msg %
+        except self.READ_PB_EXCEPTIONS, e:
+          raise datastore_errors.InternalError(self.READ_ERROR_MSG %
                                                (self.__history_file, e))
 
         if query_pb in self.__query_history:
@@ -193,7 +311,7 @@ class DatastoreFileStub(object):
       encoded = []
       for kind_dict in self.__entities.values():
         for entity in kind_dict.values():
-          encoded.append(entity.Encode())
+          encoded.append(entity.encoded_protobuf)
 
       self.__WritePickled(encoded, self.__datastore_file)
 
@@ -235,7 +353,11 @@ class DatastoreFileStub(object):
       return
 
     tmpfile = openfile(os.tempnam(os.path.dirname(filename)), 'wb')
-    pickle.dump(obj, tmpfile, 1)
+
+    pickler = pickle.Pickler(tmpfile, protocol=1)
+    pickler.fast = True
+    pickler.dump(obj)
+
     tmpfile.close()
 
     self.__file_lock.acquire()
@@ -255,25 +377,13 @@ class DatastoreFileStub(object):
     """ The main RPC entry point. service must be 'datastore_v3'. So far, the
     supported calls are 'Get', 'Put', 'RunQuery', 'Next', and 'Count'.
     """
-
-    assert service == 'datastore_v3', "wrong service"
+    super(DatastoreFileStub, self).MakeSyncCall(service,
+                                                call,
+                                                request,
+                                                response)
 
     explanation = []
-    assert request.IsInitialized(explanation), "request not initialized"
-
-    (getattr(self, "_Dynamic_" + call))(request, response)
-
-    assert response.IsInitialized(explanation), "response not initialized"
-
-  def ResolveAppId(self, app):
-    """ If the given app name is the placeholder for the local app, returns
-    our app_id. Otherwise returns the app name unchanged.
-    """
-    assert app != '', "app is non-empty"
-    if app == datastore._LOCAL_APP_ID:
-      return self.__app_id
-    else:
-      return app
+    assert response.IsInitialized(explanation), explanation
 
   def QueryHistory(self):
     """Returns a dict that maps Query PBs to times they've been run.
@@ -288,11 +398,8 @@ class DatastoreFileStub(object):
       clone.CopyFrom(entity)
       clones.append(clone)
 
-      assert clone.has_key(), "put has key"
-      assert clone.key().path().element_size() > 0, "key path has > 0 elements"
-
-      app = self.ResolveAppId(clone.key().app())
-      clone.mutable_key().set_app(app)
+      assert clone.has_key()
+      assert clone.key().path().element_size() > 0
 
       last_path = clone.key().path().element_list()[-1]
       if last_path.id() == 0 and not last_path.has_name():
@@ -301,22 +408,20 @@ class DatastoreFileStub(object):
         self.__next_id += 1
         self.__id_lock.release()
 
-        assert clone.entity_group().element_size() == 0, "entity group element size == 0"
+        assert clone.entity_group().element_size() == 0
         group = clone.mutable_entity_group()
         root = clone.key().path().element(0)
         group.add_element().CopyFrom(root)
 
       else:
         assert (clone.has_entity_group() and
-                clone.entity_group().element_size() > 0), "last_path.id() == 0 and not last_path.has_name()"
+                clone.entity_group().element_size() > 0)
 
     self.__entities_lock.acquire()
 
     try:
       for clone in clones:
-        last_path = clone.key().path().element_list()[-1]
-        kind_dict = self.__entities.setdefault((app, last_path.type()), {})
-        kind_dict[clone.key()] = clone
+        self._StoreEntity(clone)
     finally:
       self.__entities_lock.release()
 
@@ -328,13 +433,11 @@ class DatastoreFileStub(object):
 
   def _Dynamic_Get(self, get_request, get_response):
     for key in get_request.key_list():
-        app = self.ResolveAppId(key.app())
-        key.set_app(app)
-        last_path = key.path().element_list()[-1]
+        app_kind = self._AppKindForKey(key)
 
         group = get_response.add_entity()
         try:
-          entity = self.__entities[app, last_path.type()][key]
+          entity = self.__entities[app_kind][key].protobuf
         except KeyError:
           entity = None
 
@@ -346,13 +449,13 @@ class DatastoreFileStub(object):
     self.__entities_lock.acquire()
     try:
       for key in delete_request.key_list():
+        app_kind = self._AppKindForKey(key)
         try:
-          app = self.ResolveAppId(key.app())
-          key.set_app(app)
-          kind = key.path().element_list()[-1].type()
-          del self.__entities[app, kind][key]
-          if not self.__entities[app, kind]:
-            del self.__entities[app, kind]
+          del self.__entities[app_kind][key]
+          if not self.__entities[app_kind]:
+            del self.__entities[app_kind]
+
+          del self.__schema_cache[app_kind]
         except KeyError:
           pass
 
@@ -365,16 +468,28 @@ class DatastoreFileStub(object):
   def _Dynamic_RunQuery(self, query, query_result):
     if not self.__tx_lock.acquire(False):
       raise apiproxy_errors.ApplicationError(
-        datastore_pb.Error.BAD_REQUEST, "Can't query inside a transaction.")
+          datastore_pb.Error.BAD_REQUEST, 'Can\'t query inside a transaction.')
     else:
       self.__tx_lock.release()
 
-    app = self.ResolveAppId(query.app())
+    if query.has_offset() and query.offset() > _MAX_QUERY_OFFSET:
+      raise apiproxy_errors.ApplicationError(
+          datastore_pb.Error.BAD_REQUEST, 'Too big query offset.')
+
+    num_components = len(query.filter_list()) + len(query.order_list())
+    if query.has_ancestor():
+      num_components += 1
+    if num_components > _MAX_QUERY_COMPONENTS:
+      raise apiproxy_errors.ApplicationError(
+          datastore_pb.Error.BAD_REQUEST,
+          ('query is too large. may not have more than %s filters'
+           ' + sort orders ancestor total' % _MAX_QUERY_COMPONENTS))
+
+    app = query.app()
 
     if self.__require_indexes:
-      required_index = datastore_index.CompositeIndexForQuery(query)
-      if required_index is not None:
-        kind, ancestor, props, num_eq_filters = required_index
+      required, kind, ancestor, props, num_eq_filters = datastore_index.CompositeIndexForQuery(query)
+      if required:
         required_key = kind, ancestor, props
         indexes = self.__indexes.get(app)
         if not indexes:
@@ -405,7 +520,7 @@ class DatastoreFileStub(object):
     try:
       query.set_app(app)
       results = self.__entities[app, query.kind()].values()
-      results = [datastore.Entity._FromPb(pb) for pb in results]
+      results = [entity.native for entity in results]
     except KeyError:
       results = []
 
@@ -429,25 +544,33 @@ class DatastoreFileStub(object):
       prop = filt.property(0).name().decode('utf-8')
       op = operators[filt.op()]
 
+      filter_val_list = [datastore_types.FromPropertyPb(filter_prop)
+                         for filter_prop in filt.property_list()]
+
       def passes(entity):
         """ Returns True if the entity passes the filter, False otherwise. """
-        entity_vals = entity.get(prop, [])
-        if type(entity_vals) is not types.ListType:
+        if prop in datastore_types._SPECIAL_PROPERTIES:
+          entity_vals = self.__GetSpecialPropertyValue(entity, prop)
+        else:
+          entity_vals = entity.get(prop, [])
+
+        if not isinstance(entity_vals, list):
           entity_vals = [entity_vals]
 
-        entity_property_list = [datastore_types.ToPropertyPb(prop, value)
-                                for value in entity_vals]
-
-        for entity_prop in entity_property_list:
-          fixed_entity_val = datastore_types.FromPropertyPb(entity_prop)
-
-          if isinstance(fixed_entity_val, datastore_types._RAW_PROPERTY_TYPES):
+        for fixed_entity_val in entity_vals:
+          if type(fixed_entity_val) in datastore_types._RAW_PROPERTY_TYPES:
             continue
 
-          for filter_prop in filt.property_list():
-            filter_val = datastore_types.FromPropertyPb(filter_prop)
-
-            comp = u'%r %s %r' % (fixed_entity_val, op, filter_val)
+          for filter_val in filter_val_list:
+            fixed_entity_type = self._PROPERTY_TYPE_TAGS.get(
+              fixed_entity_val.__class__)
+            filter_type = self._PROPERTY_TYPE_TAGS.get(filter_val.__class__)
+            if fixed_entity_type == filter_type:
+              comp = u'%r %s %r' % (fixed_entity_val, op, filter_val)
+            elif op != '==':
+              comp = '%r %s %r' % (fixed_entity_type, op, filter_type)
+            else:
+              continue
 
             logging.log(logging.DEBUG - 1,
                         'Evaling filter expression "%s"', comp)
@@ -464,13 +587,17 @@ class DatastoreFileStub(object):
       results = filter(passes, results)
 
     def has_prop_indexed(entity, prop):
-      """Returns True if prop is in the entity and is not a raw property."""
+      """Returns True if prop is in the entity and is not a raw property, or
+      is a special property."""
+      if prop in datastore_types._SPECIAL_PROPERTIES:
+        return True
+
       values = entity.get(prop, [])
       if not isinstance(values, (tuple, list)):
         values = [values]
 
       for value in values:
-        if not isinstance(value, datastore_types._RAW_PROPERTY_TYPES):
+        if type(value) not in datastore_types._RAW_PROPERTY_TYPES:
           return True
       return False
 
@@ -478,7 +605,7 @@ class DatastoreFileStub(object):
       prop = order.property().decode('utf-8')
       results = [entity for entity in results if has_prop_indexed(entity, prop)]
 
-    def order_compare(a, b):
+    def order_compare_entities(a, b):
       """ Return a negative, zero or positive number depending on whether
       entity a is considered smaller than, equal to, or larger than b,
       according to the query's orderings. """
@@ -486,36 +613,55 @@ class DatastoreFileStub(object):
       for o in query.order_list():
         prop = o.property().decode('utf-8')
 
-        if o.direction() is datastore_pb.Query_Order.ASCENDING:
-          selector = min
+        reverse = (o.direction() is datastore_pb.Query_Order.DESCENDING)
+
+        if prop in datastore_types._SPECIAL_PROPERTIES:
+          a_val = self.__GetSpecialPropertyValue(a, prop)
+          b_val = self.__GetSpecialPropertyValue(b, prop)
         else:
-          selector = max
+          a_val = a[prop]
+          if isinstance(a_val, list):
+            a_val = sorted(a_val, order_compare_properties, reverse=reverse)[0]
 
-        a_val = a[prop]
-        if isinstance(a_val, list):
-          a_val = selector(a_val)
+          b_val = b[prop]
+          if isinstance(b_val, list):
+            b_val = sorted(b_val, order_compare_properties, reverse=reverse)[0]
 
-        b_val = b[prop]
-        if isinstance(b_val, list):
-          b_val = selector(b_val)
-
-        try:
-          cmped = cmp(a_val, b_val)
-        except TypeError:
-          cmped = NotImplementedError
-
-        if cmped == NotImplementedError:
-          cmped = cmp(type(a_val), type(b_val))
+        cmped = order_compare_properties(a_val, b_val)
 
         if o.direction() is datastore_pb.Query_Order.DESCENDING:
           cmped = -cmped
 
         if cmped != 0:
           return cmped
+
       if cmped == 0:
         return cmp(a.key(), b.key())
 
-    results.sort(order_compare)
+    def order_compare_properties(x, y):
+      """Return a negative, zero or positive number depending on whether
+      property value x is considered smaller than, equal to, or larger than
+      property value y. If x and y are different types, they're compared based
+      on the type ordering used in the real datastore, which is based on the
+      tag numbers in the PropertyValue PB.
+      """
+      if isinstance(x, datetime.datetime):
+        x = datastore_types.DatetimeToTimestamp(x)
+      if isinstance(y, datetime.datetime):
+        y = datastore_types.DatetimeToTimestamp(y)
+
+      x_type = self._PROPERTY_TYPE_TAGS.get(x.__class__)
+      y_type = self._PROPERTY_TYPE_TAGS.get(y.__class__)
+
+      if x_type == y_type:
+        try:
+          return cmp(x, y)
+        except TypeError:
+          return 0
+      else:
+        return cmp(x_type, y_type)
+
+    results.sort(order_compare_entities)
 
     offset = 0
     limit = len(results)
@@ -523,6 +669,8 @@ class DatastoreFileStub(object):
       offset = query.offset()
     if query.has_limit():
       limit = query.limit()
+    if limit > _MAXIMUM_RESULTS:
+      limit = _MAXIMUM_RESULTS
     results = results[offset:limit + offset]
 
     clone = datastore_pb.Query()
@@ -534,7 +682,6 @@ class DatastoreFileStub(object):
       self.__query_history[clone] = 1
     self.__WriteHistory()
 
-    results = [e._ToPb() for e in results]
     self.__cursor_lock.acquire()
     cursor = self.__next_cursor
     self.__next_cursor += 1
@@ -543,7 +690,6 @@ class DatastoreFileStub(object):
 
     query_result.mutable_cursor().set_cursor(cursor)
     query_result.set_more_results(len(results) > 0)
-
 
   def _Dynamic_Next(self, next_request, query_result):
     cursor = next_request.cursor().cursor()
@@ -555,12 +701,11 @@ class DatastoreFileStub(object):
                                              'Cursor %d not found' % cursor)
 
     count = next_request.count()
-    for r in results[:count]:
-      query_result.add_result().CopyFrom(r)
+    results_pb = [r._ToPb() for r in results[:count]]
+    query_result.result_list().extend(results_pb)
     del results[:count]
 
     query_result.set_more_results(len(results) > 0)
-
 
   def _Dynamic_Count(self, query, integer64proto):
     query_result = datastore_pb.QueryResult()
@@ -569,7 +714,6 @@ class DatastoreFileStub(object):
     results, count = self.__queries[cursor]
     integer64proto.set_value(count)
     del self.__queries[cursor]
-
 
   def _Dynamic_BeginTransaction(self, request, transaction):
     self.__tx_handle_lock.acquire()
@@ -609,23 +753,31 @@ class DatastoreFileStub(object):
 
   def _Dynamic_GetSchema(self, app_str, schema):
     minint = -sys.maxint - 1
+    try:
+      minfloat = float('-inf')
+    except ValueError:
+      minfloat = -1e300000
 
-    app_str = self.ResolveAppId(app_str.value())
+    app_str = app_str.value()
 
     kinds = []
 
     for app, kind in self.__entities:
       if app == app_str:
+        app_kind = (app, kind)
+        if app_kind in self.__schema_cache:
+          kinds.append(self.__schema_cache[app_kind])
+          continue
+
         kind_pb = entity_pb.EntityProto()
         kind_pb.mutable_key().set_app('')
         kind_pb.mutable_key().mutable_path().add_element().set_type(kind)
         kind_pb.mutable_entity_group()
-        kinds.append(kind_pb)
 
         props = {}
 
-        for entity in self.__entities[(app, kind)].values():
-          for prop in entity.property_list():
+        for entity in self.__entities[app_kind].values():
+          for prop in entity.protobuf.property_list():
             if prop.name() not in props:
               props[prop.name()] = entity_pb.PropertyValue()
             props[prop.name()].MergeFrom(prop.value())
@@ -638,10 +790,10 @@ class DatastoreFileStub(object):
           if value_pb.has_stringvalue():
             value_pb.set_stringvalue('')
           if value_pb.has_doublevalue():
-            value_pb.set_doublevalue(float('-inf'))
+            value_pb.set_doublevalue(minfloat)
           if value_pb.has_pointvalue():
-            value_pb.mutable_pointvalue().set_x(float('-inf'))
-            value_pb.mutable_pointvalue().set_y(float('-inf'))
+            value_pb.mutable_pointvalue().set_x(minfloat)
+            value_pb.mutable_pointvalue().set_y(minfloat)
           if value_pb.has_uservalue():
             value_pb.mutable_uservalue().set_gaiaid(minint)
             value_pb.mutable_uservalue().set_email('')
@@ -654,9 +806,14 @@ class DatastoreFileStub(object):
         for name, value_pb in props.items():
           prop_pb = kind_pb.add_property()
           prop_pb.set_name(name)
+          prop_pb.set_multiple(False)
           prop_pb.mutable_value().CopyFrom(value_pb)
 
-    schema.kind_list().extend(kinds)
+        kinds.append(kind_pb)
+        self.__schema_cache[app_kind] = kind_pb
+
+    for kind_pb in kinds:
+      schema.add_kind().CopyFrom(kind_pb)
 
   def _Dynamic_CreateIndex(self, index, id_response):
     if index.id() != 0:
@@ -674,7 +831,7 @@ class DatastoreFileStub(object):
 
     clone = entity_pb.CompositeIndex()
     clone.CopyFrom(index)
-    app = self.ResolveAppId(index.app_id())
+    app = index.app_id()
     clone.set_app_id(app)
 
     self.__indexes_lock.acquire()
@@ -687,14 +844,15 @@ class DatastoreFileStub(object):
 
   def _Dynamic_GetIndices(self, app_str, composite_indices):
     composite_indices.index_list().extend(
-      self.__indexes.get(self.ResolveAppId(app_str.value()), []))
+      self.__indexes.get(app_str.value(), []))
 
   def _Dynamic_UpdateIndex(self, index, void):
     stored_index = self.__FindIndex(index)
     if not stored_index:
       raise apiproxy_errors.ApplicationError(datastore_pb.Error.BAD_REQUEST,
                                              "Index doesn't exist.")
-    elif index.state() != stored_index.state() + 1:
+    elif (index.state() != stored_index.state() and
+          index.state() not in self._INDEX_STATE_TRANSITIONS[stored_index.state()]):
       raise apiproxy_errors.ApplicationError(
         datastore_pb.Error.BAD_REQUEST,
         "cannot move index state from %s to %s" %
@@ -713,7 +871,7 @@ class DatastoreFileStub(object):
       raise apiproxy_errors.ApplicationError(datastore_pb.Error.BAD_REQUEST,
                                              "Index doesn't exist.")
 
-    app = self.ResolveAppId(index.app_id())
+    app = index.app_id()
     self.__indexes_lock.acquire()
     try:
       self.__indexes[app].remove(stored_index)
@@ -729,11 +887,30 @@ class DatastoreFileStub(object):
     Returns:
       entity_pb.CompositeIndex, if it exists; otherwise None
     """
-    app = self.ResolveAppId(index.app_id())
-
+    app = index.app_id()
     if app in self.__indexes:
       for stored_index in self.__indexes[app]:
         if index.definition() == stored_index.definition():
           return stored_index
 
     return None
+
+  @classmethod
+  def __GetSpecialPropertyValue(cls, entity, property):
+    """Returns an entity's value for a special property.
+
+    Right now, the only special property is __key__, whose value is the
+    entity's key.
+
+    Args:
+      entity: datastore.Entity
+
+    Returns:
+      property value. For __key__, a datastore_types.Key.
+
+    Raises:
+      AssertionError, if the given property is not special.
+    """
+    assert property in datastore_types._SPECIAL_PROPERTIES
+    if property == datastore_types._KEY_SPECIAL_PROPERTY:
+      return entity.key()
