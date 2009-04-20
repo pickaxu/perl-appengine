@@ -7,7 +7,7 @@ use AppEngine::API::Datastore::Entity;
 use AppEngine::API::Datastore::Query;
 use AppEngine::APIProxy;
 use Data::Dumper;
-use Test::More tests => 25;
+use Test::More tests => 28;
 
 $AppEngine::APIProxy::bypass_client = 1;
 $ENV{APPLICATION_ID} = 'appid';
@@ -35,7 +35,7 @@ AppEngine::API::Datastore::Entity->new($kind, {
     name => 'larry',
     age  => 42,
 })->put;
-AppEngine::API::Datastore::Entity->new($kind, {
+my $moe_key = AppEngine::API::Datastore::Entity->new($kind, {
     name => 'moe',
     age  => 31,
 })->put;
@@ -99,3 +99,20 @@ $q->filter('age <', 25);
 
 is(scalar(@results), 1);
 is($results[0]->{name}, 'bob');
+
+
+# Give moe a child
+AppEngine::API::Datastore::Entity->new($kind, parent => $moe_key, {
+    name => 'littlemoe',
+    age  => 4,
+})->put;
+
+# Test ancestor
+$q = AppEngine::API::Datastore::Query->new($kind);
+$q->ancestor($moe_key);
+$q->order('age');
+@results = run_query($q);
+
+is(scalar(@results), 2);
+is($results[0]->{name}, 'littlemoe');
+is($results[1]->{name}, 'moe');
