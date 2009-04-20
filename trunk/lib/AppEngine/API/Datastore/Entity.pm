@@ -94,18 +94,24 @@ sub _to_pb {
         next if $key =~ m/^_/;
 
         my $property_value = $pb->add_property;
-        $property_value->set_name($key);
-        $property_value->set_multiple(0);
+        _property_to_pb($property_value, $key, $value);
+    }
+}
 
-        # TODO(davidsansome): nicer way to find type of a scalar?
-        my $type;
-        if ($value =~ m/^[+-]?\d+$/) {
-            $property_value->value->set_int64Value($value);
-        } elsif ($value =~ m/^[+-]?[\d.]+$/) {
-            $property_value->value->set_doubleValue($value);
-        } else {
-            $property_value->value->set_stringValue($value);
-        }
+sub _property_to_pb {
+    my ($property_value, $key, $value) = @_;
+
+    $property_value->set_name($key);
+    $property_value->set_multiple(0);
+
+    # TODO(davidsansome): nicer way to find type of a scalar?
+    my $type;
+    if ($value =~ m/^[+-]?\d+$/) {
+        $property_value->value->set_int64Value($value);
+    } elsif ($value =~ m/^[+-]?[\d.]+$/) {
+        $property_value->value->set_doubleValue($value);
+    } else {
+        $property_value->value->set_stringValue($value);
     }
 }
 
