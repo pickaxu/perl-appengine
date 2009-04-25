@@ -170,4 +170,17 @@ sub _path_to_pb {
     }
 }
 
+sub _to_reference_value_pb {
+    my ($self, $pb) = @_;
+
+    $pb->set_app($self->app);
+
+    foreach my $element (@{$self->{_ref}->path->elements}) {
+        my $element_dest = $pb->add_pathelement;
+        $element_dest->set_type($element->type) if $element->has_type;
+        $element_dest->set_id($element->id)     if $element->has_id;
+        $element_dest->set_name($element->name) if $element->has_name;
+    }
+}
+
 1;
