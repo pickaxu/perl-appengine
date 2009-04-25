@@ -185,7 +185,7 @@ sub ancestor {
         $ancestor = $ancestor->key;
     } elsif ($type && $type ne 'AppEngine::API::Datastore::Key') {
         croak 'expected Key or Entity, got ' . $type;
-    } else {
+    } elsif (!$type) {
         # It might be an encoded key
         $ancestor = AppEngine::API::Datastore::Key->new($ancestor);
     }
