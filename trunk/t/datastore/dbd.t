@@ -7,7 +7,7 @@ use AppEngine::API::Datastore::Entity;
 use AppEngine::APIProxy;
 use Data::Dumper;
 use DBI;
-use Test::More tests => 28;
+use Test::More tests => 32;
 
 $AppEngine::APIProxy::bypass_client = 1;
 $ENV{APPLICATION_ID} = 'apiproxy-python';
