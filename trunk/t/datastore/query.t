@@ -7,7 +7,7 @@ use AppEngine::API::Datastore::Entity;
 use AppEngine::API::Datastore::Query;
 use AppEngine::APIProxy;
 use Data::Dumper;
-use Test::More tests => 31;
+use Test::More tests => 35;
 
 $AppEngine::APIProxy::bypass_client = 1;
 $ENV{APPLICATION_ID} = 'apiproxy-python';
@@ -130,3 +130,19 @@ is($results[1]->{name}, 'moe');
 $q = AppEngine::API::Datastore::Query->new($kind);
 $q->filter('age <', 30);
 is($q->count, 2);
+
+
+# Test filter by key
+$q = AppEngine::API::Datastore::Query->new($kind);
+$q->filter('key =', $moe_key->str);
+@results = run_query($q);
+
+is(scalar(@results), 1);
+is($results[0]->{name}, 'moe');
+
+$q = AppEngine::API::Datastore::Query->new($kind);
+$q->filter('key =', $moe_key);
+@results = run_query($q);
+
+is(scalar(@results), 1);
+is($results[0]->{name}, 'moe');

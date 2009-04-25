@@ -101,12 +101,24 @@ sub _to_pb {
 sub _property_to_pb {
     my ($property_value, $key, $value) = @_;
 
+    # This is a bit of a hack
+    $key = '__key__' if $key eq 'key';
+
+    if ($key eq '__key__' && !ref $value) {
+        $value = AppEngine::API::Datastore::Key->new($value);
+    }
+
     $property_value->set_name($key);
     $property_value->set_multiple(0);
 
     # TODO(davidsansome): nicer way to find type of a scalar?
-    my $type;
-    if ($value =~ m/^[+-]?\d+$/) {
+
+    my $type = ref $value;
+    if ($type eq 'AppEngine::API::Datastore::Key') {
+        $value->_to_reference_value_pb($property_value->value->referencevalue);
+    } elsif ($type eq 'AppEngine::API::Datastore::Entity') {
+        $value->key->_to_reference_value_pb($property_value->value->referencevalue);
+    } elsif ($value =~ m/^[+-]?\d+$/) {
         $property_value->value->set_int64Value($value);
     } elsif ($value =~ m/^[+-]?[\d.]+$/) {
         $property_value->value->set_doubleValue($value);

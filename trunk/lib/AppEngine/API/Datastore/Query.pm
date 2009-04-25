@@ -112,6 +112,7 @@ sub order {
     croak 'expected name of property to order by' unless defined($property);
 
     my $descending = $property =~ s/^-//;
+    $property = '__key__' if $property eq 'key';
 
     my $order = $self->{_pb}->add_order;
     $order->set_property($property);
