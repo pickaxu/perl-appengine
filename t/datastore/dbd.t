@@ -7,7 +7,7 @@ use AppEngine::API::Datastore::Entity;
 use AppEngine::APIProxy;
 use Data::Dumper;
 use DBI;
-use Test::More tests => 32;
+use Test::More tests => 35;
 
 $AppEngine::APIProxy::bypass_client = 1;
 $ENV{APPLICATION_ID} = 'apiproxy-python';
@@ -130,13 +130,21 @@ $sth = $dbh->prepare("SELECT * FROM $kind");
 @results = run_query($sth);
 is(scalar(@results), 5);
 foreach my $result (@results) {
-    is(scalar @$result, 2);
+    is(scalar @$result, 3);
 }
 
 
+# Test SELECT key
+$sth = $dbh->prepare("SELECT key FROM $kind WHERE name='moe'");
+
+@results = run_query($sth);
+is(scalar(@results), 1);
+is($results[0]->[0], $moe_key->str);
+
 # Test other ways of fetching rows
-$sth = $dbh->prepare("SELECT age, name FROM $kind WHERE name='moe'");
+$sth = $dbh->prepare("SELECT age, name, key FROM $kind WHERE name='moe'");
 $sth->execute;
 my $row = $sth->fetchrow_hashref;
 is($row->{name}, 'moe');
 is($row->{age}, 31);
+is($row->{key}, $moe_key->str);

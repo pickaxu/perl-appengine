@@ -212,7 +212,7 @@ BEGIN {
             # We look at the first entity to determine the number of fields and
             # get the names of columns
             my $first_entity = $query->fetch(1);
-            my @column_names;
+            my @column_names = ('key');
 
             if ($first_entity) {
                 foreach my $key (keys %$first_entity) {
@@ -308,10 +308,13 @@ BEGIN {
         my $data = [];
         foreach my $column (@{$stmt->{column_names}}) {
             if ($column eq '*') {
+                push @$data, $entity->key->str;
                 foreach my $key (sort keys %$entity) {
                     next if $key =~ m/^_/;
                     push @$data, $entity->{$key};
                 }
+            } elsif ($column eq 'key') {
+                push @$data, $entity->key->str;
             } else {
                 push @$data, $entity->{$column};
             }
