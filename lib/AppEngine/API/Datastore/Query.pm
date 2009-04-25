@@ -246,7 +246,7 @@ Example:
 =cut
 
 sub fetch {
-    my $self = shift;
+    my ($self, $peek) = @_;
     $self->_execute unless $self->{_cursor} || $self->{_more_results};
 
     if (@{$self->{_buffer}} == 0) {
@@ -269,6 +269,7 @@ sub fetch {
         }
     }
 
+    return $self->{_buffer}[0] if $peek;
     return shift @{$self->{_buffer}};
 }
 
