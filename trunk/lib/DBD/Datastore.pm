@@ -1,6 +1,16 @@
 use strict;
 use warnings;
 
+# This is a really really nasty way to stop SQL::Statement from converting names
+# of tables and columns to upper case
+my $override_uc = 0;
+BEGIN {
+    *CORE::GLOBAL::uc = sub {
+        return CORE::uc($_[0]) unless $override_uc;
+        return $_[0];
+    };
+}
+
 {
     package DBD::Datastore;
 
@@ -33,6 +43,8 @@ use warnings;
 {
     package DBD::Datastore::dr;
 
+    use SQL::Parser;
+
     $DBD::Datastore::dr::imp_data_size = 0;
 
     sub connect {
@@ -58,6 +70,7 @@ use warnings;
 
         my ($outer, $dbh) = DBI::_new_dbh($drh, { Name => 'Datastore' });
         $dbh->STORE('Active', 1 );
+        $dbh->{datastore_parser} = SQL::Parser->new;
 
         return $outer;
     }
@@ -68,9 +81,8 @@ use warnings;
 {
     package DBD::Datastore::db;
 
-    BEGIN { $ENV{DBI_SQL_NANO} = 1 }
     use Data::Dumper;
-    use DBI::SQL::Nano;
+    use SQL::Statement;
 
     $DBD::Datastore::db::imp_data_size = 0;
 
@@ -81,17 +93,19 @@ use warnings;
         my ($outer, $sth) = DBI::_new_sth($dbh, { Statement => $statement });
 
         # Parse the SQL
-        my $stmt = DBI::SQL::Nano::Statement->new($statement);
+        $override_uc = 1;
+        my $stmt = SQL::Statement->new($statement, $dbh->{datastore_parser});
+        $override_uc = 0;
 
         # Do some basic validation
-        return $dbh->set_err($DBI::stderr, $stmt->{command} . ' not supported')
-            unless $stmt->{command} eq 'SELECT';
+        return $dbh->set_err($DBI::stderr, $stmt->command . ' not supported')
+            unless uc $stmt->command eq 'SELECT';
+        return $dbh->set_err($DBI::stderr, 'no table specified')  if scalar $stmt->tables == 0;
+        return $dbh->set_err($DBI::stderr, 'joins not supported') if scalar $stmt->tables > 1;
 
-        $sth->STORE('NUM_OF_PARAMS', 0); # TODO(davidsansome)
+        $sth->STORE('NUM_OF_PARAMS', scalar $stmt->params);
         $sth->{datastore_params} = [];
         $sth->{datastore_stmt} = $stmt;
-
-        warn Dumper($stmt);
 
         return $outer;
     }
@@ -165,18 +179,16 @@ use warnings;
 
         my $stmt = $sth->{datastore_stmt};
 
-        my $query = AppEngine::API::Datastore::Query->new($stmt->{table_name});
+        my $query = AppEngine::API::Datastore::Query->new($stmt->tables(0)->name);
 
-        if ($stmt->{order_clause}) {
-            my $column = (keys %{$stmt->{order_clause}})[0];
-            my $direction = $stmt->{order_clause}{$column};
-            my $property = ($direction eq 'DESC' ? '-' : '') . $column;
+        foreach my $order ($stmt->order) {
+            my $property = ($order->desc ? '-' : '') . $order->column;
             $query->order($property);
         }
 
         # TODO(davidsansome): where
 
-        $sth->STORE('NUM_OF_FIELDS', scalar @{$stmt->{column_names}});
+        $sth->STORE('NUM_OF_FIELDS', scalar $stmt->columns);
         $sth->{Active} = 1;
         $sth->{datastore_query} = $query;
     }
