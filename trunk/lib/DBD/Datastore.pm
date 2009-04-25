@@ -135,16 +135,13 @@ BEGIN {
         if ($attr eq 'AutoCommit') {
             if (!$val) { die "Can't disable AutoCommit"; }
             return 1;
-        }
-        if ($attr eq 'RaiseError') {
-            $dbh->{datastore_parser}->{RaiseError} = $val;
-        }
-        if ($attr eq 'PrintError') {
-            $dbh->{datastore_parser}->{PrintError} = $val;
-        }
-        if ($attr =~ m/^datastore_/) {
+        } elsif ($attr =~ m/^datastore_/) {
             $dbh->{$attr} = $val;
             return 1;
+        } elsif ($attr eq 'RaiseError') {
+            $dbh->{datastore_parser}->{RaiseError} = $val;
+        } elsif ($attr eq 'PrintError') {
+            $dbh->{datastore_parser}->{PrintError} = $val;
         }
         $dbh->SUPER::STORE($attr, $val);
     }
@@ -225,8 +222,7 @@ BEGIN {
 
             $sth->STORE('NUM_OF_FIELDS', scalar @column_names);
             $sth->{datastore_column_names} = \@column_names;
-        }
-        else {
+        } else {
             $sth->STORE('NUM_OF_FIELDS', scalar $stmt->columns);
             $sth->{datastore_column_names} = [ map { $_->name } $stmt->columns ];
         }
@@ -248,8 +244,7 @@ BEGIN {
         if (uc $op->op eq 'AND') {
             return _parse_where($sth, $query, $op->arg1) &&
                    _parse_where($sth, $query, $op->arg2);
-        }
-        else {
+        } else {
             my $param;
             my $value;
             my $operator = $op->op;
@@ -257,12 +252,10 @@ BEGIN {
             if (ref $op->arg1 eq 'SQL::Statement::Column') {
                 $param = $op->arg1->name;
                 $value = _value($sth, $op->arg2);
-            }
-            elsif (ref $op->arg2 eq 'SQL::Statement::Column') {
+            } elsif (ref $op->arg2 eq 'SQL::Statement::Column') {
                 $param = $op->arg2->name;
                 $value = _value($sth, $op->arg1);
-            }
-            else {
+            } else {
                 return $dbh->set_err($DBI::stderr, 'one argument in a WHERE condition must be the name of a column');
             }
 
@@ -319,8 +312,7 @@ BEGIN {
                     next if $key =~ m/^_/;
                     push @$data, $entity->{$key};
                 }
-            }
-            else {
+            } else {
                 push @$data, $entity->{$column};
             }
         }
