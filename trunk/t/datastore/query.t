@@ -10,7 +10,7 @@ use Data::Dumper;
 use Test::More tests => 31;
 
 $AppEngine::APIProxy::bypass_client = 1;
-$ENV{APPLICATION_ID} = 'appid';
+$ENV{APPLICATION_ID} = 'apiproxy-python';
 
 # Get a unique-ish kind, so we don't have to clear the DB before running tests
 my $kind = 'QueryTest_' . $$ . '_' . rand(100000);

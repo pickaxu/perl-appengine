@@ -9,7 +9,7 @@ use AppEngine::Service::Entity;
 use Data::Dumper;
 use Test::More tests => 16;
 
-$ENV{APPLICATION_ID} = 'appid';
+$ENV{APPLICATION_ID} = 'apiproxy-python';
 
 # Test basic getters and setters
 my $entity = AppEngine::API::Datastore::Entity->new('kind');

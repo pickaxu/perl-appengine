@@ -7,7 +7,7 @@ use AppEngine::API::Datastore::Key;
 use AppEngine::Service::Entity;
 use Test::More tests => 23;
 
-$ENV{APPLICATION_ID} = 'appid';
+$ENV{APPLICATION_ID} = 'apiproxy-python';
 
 # Test basic getters and setters
 my $key = AppEngine::API::Datastore::Key::from_path(['parentkind', 'parentname', 'kind', 'name']);
