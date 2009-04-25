@@ -136,7 +136,12 @@ sub _handle_script {
     my $appdir = $self->{pae_appdir};
 
     $ENV{CLASS_MOP_NO_XS} = 1;
-    $ENV{APPLICATION_ID} = $self->{app_config}->app_name;
+
+    # TODO(davidsansome): the python SDK actually checks this now - find a 
+    # workaround?
+    #$ENV{APPLICATION_ID} = $self->{app_config}->app_name;
+    $ENV{APPLICATION_ID} = 'apiproxy-python';
+
     exec "perl",
          "-Ilib",  # AppEngine::APIProxy, ::Service::Memcache, etc.
          "-Icpanlib/Class-MOP/lib",

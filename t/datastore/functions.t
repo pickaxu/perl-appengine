@@ -10,7 +10,7 @@ use Data::Dumper;
 use Test::More tests => 17;
 
 $AppEngine::APIProxy::bypass_client = 1;
-$ENV{APPLICATION_ID} = 'appid';
+$ENV{APPLICATION_ID} = 'apiproxy-python';
 
 # Test put and get with one entity
 my $entity = AppEngine::API::Datastore::Entity->new('test');
