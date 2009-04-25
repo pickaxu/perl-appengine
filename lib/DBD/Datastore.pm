@@ -23,9 +23,6 @@ BEGIN {
 
         $class .= "::dr";
 
-        #DBD::Driver::db->install_method('drv_example_dbh_method');
-        #DBD::Driver::st->install_method('drv_example_sth_method');
-
         $drh = DBI::_new_drh($class, {
             'Name'        => 'Datastore',
             'Version'     => $VERSION,
@@ -181,6 +178,7 @@ BEGIN {
         my $numParam = $sth->FETCH('NUM_OF_PARAMS');
         return $sth->set_err($DBI::stderr, "Wrong number of parameters")
             if @$params != $numParam;
+        $sth->{datastore_params} = $params;
 
         my $stmt = $sth->{datastore_stmt};
 
@@ -191,7 +189,9 @@ BEGIN {
             $query->order($property);
         }
 
-        _parse_where($query, $stmt->where) if $stmt->where;
+        if ($stmt->where) {
+            _parse_where($sth, $query, $stmt->where) or return;
+        }
 
         $sth->STORE('NUM_OF_FIELDS', scalar $stmt->columns);
         $sth->{Active} = 1;
@@ -199,15 +199,48 @@ BEGIN {
     }
 
     sub _parse_where {
-        my ($query, $op) = @_;
+        my ($sth, $query, $op) = @_;
+        my $dbh = $sth->{Database};
 
         if (uc $op->op eq 'AND') {
-            _parse_where($query, $op->arg1);
-            _parse_where($query, $op->arg2);
+            return _parse_where($sth, $query, $op->arg1) &&
+                   _parse_where($sth, $query, $op->arg2);
         }
         else {
-            $query->filter($op->arg1->name . ' ' . $op->op, $op->arg2);
+            my $param;
+            my $value;
+            my $operator = $op->op;
+
+            if (ref $op->arg1 eq 'SQL::Statement::Column') {
+                $param = $op->arg1->name;
+                $value = _value($sth, $op->arg2);
+            }
+            elsif (ref $op->arg2 eq 'SQL::Statement::Column') {
+                $param = $op->arg2->name;
+                $value = _value($sth, $op->arg1);
+            }
+            else {
+                return $dbh->set_err($DBI::stderr, 'one argument in a WHERE condition must be the name of a column');
+            }
+
+            return $dbh->set_err($DBI::stderr, 'one argument in a WHERE condition must be a literal value or bound parameter')
+                unless defined $value;
+
+            $query->filter("$param $operator", $value);
         }
+
+        return 1;
+    }
+
+    sub _value {
+        my ($sth, $arg) = @_;
+
+        return $arg unless ref $arg;
+
+        if (ref $arg eq 'SQL::Statement::Param') {
+            return shift @{$sth->{datastore_params}};
+        }
+        return;
     }
 
     sub finish {

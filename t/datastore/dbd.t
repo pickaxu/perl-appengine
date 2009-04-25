@@ -7,7 +7,7 @@ use AppEngine::API::Datastore::Entity;
 use AppEngine::APIProxy;
 use Data::Dumper;
 use DBI;
-use Test::More tests => 18;
+use Test::More tests => 21;
 
 $AppEngine::APIProxy::bypass_client = 1;
 $ENV{APPLICATION_ID} = 'apiproxy-python';
@@ -19,7 +19,7 @@ sub run_query {
     my $sth = shift;
     my @results;
 
-    $sth->execute;
+    $sth->execute(@_);
     while (my $row = $sth->fetchrow_arrayref) {
         push @results, [ @$row ];
     }
@@ -101,3 +101,10 @@ is($results[0]->[0], 'larry');
 is($results[0]->[1], 100);
 
 
+# Test bound values
+$sth = $dbh->prepare("SELECT name, age FROM $kind WHERE name=? and age=?");
+
+@results = run_query($sth, 'larry', 42);
+is(scalar(@results), 1);
+is($results[0]->[0], 'larry');
+is($results[0]->[1], 42);
