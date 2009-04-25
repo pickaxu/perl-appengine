@@ -193,7 +193,23 @@ BEGIN {
             _parse_where($sth, $query, $stmt->where) or return;
         }
 
-        $sth->STORE('NUM_OF_FIELDS', scalar $stmt->columns);
+        if ($stmt->columns(0)->name eq '*') {
+            # To determine the number of fields we look at the first entity
+            my $first_entity = $query->fetch(1);
+            my $num_of_fields = 0;
+
+            if ($first_entity) {
+                foreach my $key (keys %$first_entity) {
+                    $num_of_fields ++ unless $key =~ m/^_/;
+                }
+            }
+
+            $sth->STORE('NUM_OF_FIELDS', $num_of_fields);
+        }
+        else {
+            $sth->STORE('NUM_OF_FIELDS', scalar $stmt->columns);
+        }
+
         $sth->{Active} = 1;
         $sth->{datastore_query} = $query;
     }
