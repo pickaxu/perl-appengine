@@ -82,6 +82,12 @@ AppEngine::API::Datastore::Entity->new($kind, {
     age  => 100,
 })->put;
 
+# Give moe a child
+AppEngine::API::Datastore::Entity->new($kind, parent => $moe_key, {
+    name => 'littlemoe',
+    age  => 4,
+})->put;
+
 
 # Test filter operators
 # =
@@ -100,6 +106,14 @@ is(scalar(@results), 1);
 is($results[0]->[0], 'larry');
 is($results[0]->[1], 100);
 
+# ANCESTOR IS
+$sth = $dbh->prepare("SELECT name FROM $kind WHERE ANCESTOR IS ?");
+
+@results = run_query($sth, $moe_key->str);
+is(scalar(@results), 2);
+is($results[0]->[0], 'moe');
+is($results[1]->[0], 'littlemoe');
+
 
 # Test bound values
 $sth = $dbh->prepare("SELECT name, age FROM $kind WHERE name=? and age=?");
@@ -114,11 +128,10 @@ is($results[0]->[1], 42);
 $sth = $dbh->prepare("SELECT * FROM $kind");
 
 @results = run_query($sth);
-is(scalar(@results), 4);
-is(scalar @{$results[0]}, 2);
-is(scalar @{$results[1]}, 2);
-is(scalar @{$results[2]}, 2);
-is(scalar @{$results[3]}, 2);
+is(scalar(@results), 5);
+foreach my $result (@results) {
+    is(scalar @$result, 2);
+}
 
 
 # Test other ways of fetching rows
