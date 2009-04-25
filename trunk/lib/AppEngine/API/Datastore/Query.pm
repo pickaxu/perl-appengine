@@ -179,12 +179,15 @@ sub ancestor {
     my ($self, $ancestor) = @_;
     croak 'missing ancestor' unless $ancestor;
 
-    my $type = ref($ancestor);
+    my $type = ref $ancestor;
 
-    if ($type eq 'AppEngine::API::Datastore::Entity') {
+    if ($type && $type eq 'AppEngine::API::Datastore::Entity') {
         $ancestor = $ancestor->key;
-    } elsif ($type ne 'AppEngine::API::Datastore::Key') {
+    } elsif ($type && $type ne 'AppEngine::API::Datastore::Key') {
         croak 'expected Key or Entity, got ' . $type;
+    } else {
+        # It might be an encoded key
+        $ancestor = AppEngine::API::Datastore::Key->new($ancestor);
     }
 
     $ancestor->_to_pb($self->{_pb}->ancestor);

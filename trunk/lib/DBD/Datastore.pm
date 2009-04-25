@@ -12,6 +12,29 @@ BEGIN {
 }
 
 {
+    package DBD::Datastore::Parser;
+
+    use base qw(SQL::Parser);
+
+    sub new {
+        my $self = SQL::Parser::new(@_);
+        $self->feature('valid_comparison_operators', 'OR', 0);
+        $self->feature('valid_comparison_operators', 'LIKE', 0);
+        $self->feature('valid_comparison_operators', 'CLIKE', 0);
+        $self->feature('valid_comparison_operators', 'ANCESTOR_IS', 1);
+        $self->create_op_regexen();
+        return $self;
+    }
+
+    sub transform_syntax {
+        my ($self, $string) = @_;
+
+        $string =~ s/ANCESTOR IS/dummy_column ANCESTOR_IS/gi;
+        return $string;
+    }
+}
+
+{
     package DBD::Datastore;
 
     our $VERSION = '1.0';
@@ -40,8 +63,6 @@ BEGIN {
 {
     package DBD::Datastore::dr;
 
-    use SQL::Parser;
-
     $DBD::Datastore::dr::imp_data_size = 0;
 
     sub connect {
@@ -65,10 +86,7 @@ BEGIN {
             $attr->{$attr_name} = $attr_value;
         }
 
-        my $parser = SQL::Parser->new;
-        $parser->feature('valid_comparison_operators', 'OR', 0);
-        $parser->feature('valid_comparison_operators', 'LIKE', 0);
-        $parser->feature('valid_comparison_operators', 'CLIKE', 0);
+        my $parser = DBD::Datastore::Parser->new;
 
         my ($outer, $dbh) = DBI::_new_dbh($drh, { Name => 'Datastore' });
         $dbh->STORE('Active', 1 );
@@ -251,7 +269,11 @@ BEGIN {
             return $dbh->set_err($DBI::stderr, 'one argument in a WHERE condition must be a literal value or bound parameter')
                 unless defined $value;
 
-            $query->filter("$param $operator", $value);
+            if ($operator eq 'ANCESTOR_IS') {
+                $query->ancestor($value);
+            } else {
+                $query->filter("$param $operator", $value);
+            }
         }
 
         return 1;
@@ -307,5 +329,6 @@ BEGIN {
     }
     *fetchrow_arrayref = \&fetch;
 }
+
 
 1;
