@@ -5,8 +5,17 @@ use warnings;
 
 use AppEngine::Service::Entity;
 use Carp;
+use MIME::Base64::URLSafe;
 
-# TODO(davidsansome): parent parameter
+sub new {
+    my ($pkg, $encoded) = @_;
+
+    my $pb = AppEngine::Service::Entity::Reference->new;
+    $pb->merge_from_string(urlsafe_b64decode($encoded));
+
+    return _from_pb($pb);
+}
+
 sub from_path {
     my $ref = AppEngine::Service::Entity::Reference->new;
     $ref->set_app($ENV{APPLICATION_ID});
@@ -135,6 +144,12 @@ sub entity_group {
     my @path = $self->path;
 
     return AppEngine::API::Datastore::Key::from_path([@path[0, 1]]);
+}
+
+sub str {
+    my $self = shift;
+
+    return urlsafe_b64encode($self->{_ref}->serialize_to_string);
 }
 
 sub _to_pb {

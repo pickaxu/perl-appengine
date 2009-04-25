@@ -5,7 +5,7 @@ use warnings;
 
 use AppEngine::API::Datastore::Key;
 use AppEngine::Service::Entity;
-use Test::More tests => 23;
+use Test::More tests => 30;
 
 $ENV{APPLICATION_ID} = 'apiproxy-python';
 
@@ -23,6 +23,16 @@ my $pb = AppEngine::Service::Entity::Reference->new;
 $key->_to_pb($pb);
 $key = AppEngine::API::Datastore::Key::_from_pb($pb);
 
+is($key->app, 'appid');
+is($key->kind, 'kind');
+is($key->id, undef);
+is($key->name, 'name');
+is($key->id_or_name, 'name');
+ok($key->has_id_or_name);
+
+# Test string serialisation and deserialisation
+is($key->str, 'ag9hcGlwcm94eS1weXRob25yKAsSCnBhcmVudGtpbmQiCnBhcmVudG5hbWUMCxIEa2luZCIEbmFtZQw');
+$key = AppEngine::API::Datastore::Key->new($key->str);
 is($key->app, 'appid');
 is($key->kind, 'kind');
 is($key->id, undef);
