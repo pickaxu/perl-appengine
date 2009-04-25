@@ -5,7 +5,7 @@ use warnings;
 # of tables and columns to upper case
 my $override_uc = 0;
 BEGIN {
-    *CORE::GLOBAL::uc = sub {
+    *CORE::GLOBAL::uc = sub ($) {
         return CORE::uc($_[0]) unless $override_uc;
         return $_[0];
     };
@@ -68,9 +68,14 @@ BEGIN {
             $attr->{$attr_name} = $attr_value;
         }
 
+        my $parser = SQL::Parser->new;
+        $parser->feature('valid_comparison_operators', 'OR', 0);
+        $parser->feature('valid_comparison_operators', 'LIKE', 0);
+        $parser->feature('valid_comparison_operators', 'CLIKE', 0);
+
         my ($outer, $dbh) = DBI::_new_dbh($drh, { Name => 'Datastore' });
         $dbh->STORE('Active', 1 );
-        $dbh->{datastore_parser} = SQL::Parser->new;
+        $dbh->{datastore_parser} = $parser;
 
         return $outer;
     }
@@ -186,11 +191,23 @@ BEGIN {
             $query->order($property);
         }
 
-        # TODO(davidsansome): where
+        _parse_where($query, $stmt->where) if $stmt->where;
 
         $sth->STORE('NUM_OF_FIELDS', scalar $stmt->columns);
         $sth->{Active} = 1;
         $sth->{datastore_query} = $query;
+    }
+
+    sub _parse_where {
+        my ($query, $op) = @_;
+
+        if (uc $op->op eq 'AND') {
+            _parse_where($query, $op->arg1);
+            _parse_where($query, $op->arg2);
+        }
+        else {
+            $query->filter($op->arg1->name . ' ' . $op->op, $op->arg2);
+        }
     }
 
     sub finish {

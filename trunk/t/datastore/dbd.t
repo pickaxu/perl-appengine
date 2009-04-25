@@ -7,7 +7,7 @@ use AppEngine::API::Datastore::Entity;
 use AppEngine::APIProxy;
 use Data::Dumper;
 use DBI;
-use Test::More tests => 8;
+use Test::More tests => 18;
 
 $AppEngine::APIProxy::bypass_client = 1;
 $ENV{APPLICATION_ID} = 'apiproxy-python';
@@ -56,7 +56,6 @@ is($results[1]->[0], 'larry');
 is($results[2]->[0], 'moe');
 
 
-
 # Test ordering
 # Ascending
 $sth = $dbh->prepare("SELECT name FROM $kind ORDER BY age");
@@ -66,3 +65,39 @@ is(scalar @results, 3);
 is($results[0]->[0], 'bob');
 is($results[1]->[0], 'moe');
 is($results[2]->[0], 'larry');
+
+# Descending
+$sth = $dbh->prepare("SELECT name FROM $kind ORDER BY age DESC");
+
+@results = run_query($sth);
+is(scalar @results, 3);
+is($results[0]->[0], 'larry');
+is($results[1]->[0], 'moe');
+is($results[2]->[0], 'bob');
+
+
+# Add another older larry
+AppEngine::API::Datastore::Entity->new($kind, {
+    name => 'larry',
+    age  => 100,
+})->put;
+
+
+# Test filter operators
+# =
+$sth = $dbh->prepare("SELECT name FROM $kind WHERE name='larry'");
+
+@results = run_query($sth);
+is(scalar(@results), 2);
+is($results[0]->[0], 'larry');
+is($results[1]->[0], 'larry');
+
+# AND
+$sth = $dbh->prepare("SELECT name, age FROM $kind WHERE name='larry' and age=100");
+
+@results = run_query($sth);
+is(scalar(@results), 1);
+is($results[0]->[0], 'larry');
+is($results[0]->[1], 100);
+
+
