@@ -26,10 +26,13 @@ use warnings;
 
 use AppEngine::APIProxy qw(become_apiproxy_client);
 use AppEngine::AppConfig;
+use Carp;
 use Data::Dumper;
 use English;
 use Fcntl qw(F_GETFL F_SETFL FD_CLOEXEC);
-use File::Spec::Functions qw(catfile);
+use File::Spec::Functions qw(catfile canonpath);
+use File::Type;
+use IO::Select;
 use IO::Socket::INET;
 use IPC::Run 'start';
 use POSIX qw(dup2);
@@ -44,6 +47,7 @@ sub new {
     my $self  = $class->SUPER::new($port);
     $self->{pae_appdir} = $app_dir;
     $self->{app_config} = AppEngine::AppConfig->new(catfile($app_dir, 'app.yaml'));
+    $self->{file_type}  = File::Type->new;
 
     return ($self);
 }
@@ -81,9 +85,9 @@ sub handler {
     my ($self) = @_;
 
     my $path = $ENV{PATH_INFO};
-    my ($type, $file) = $self->{app_config}->handler_for_path($path);
+    $path =~ s/\.\.//g; # Disallow directory traversal
 
-    warn "Request for $path to handler $file\n";
+    my ($type, $file) = $self->{app_config}->handler_for_path($path);
 
     unless ($type) {
         print "HTTP/1.0 404 Not found\r\n";
@@ -91,6 +95,9 @@ sub handler {
         print "Not found error: $path did not match any patterns in application configuration.";
         return;
     }
+
+    $file = canonpath(catfile($self->{pae_appdir}, $file));
+    warn "Request for $path to handler $file\n";
 
     if ($type eq 'script') {
         $self->_handle_script($file);
@@ -100,26 +107,46 @@ sub handler {
 }
 
 sub _handle_static {
-    my ($self, $file) = @_;
-    # TODO(davidsansome)
+    my ($self, $filename) = @_;
+
+    if (-d $filename) {
+        print "HTTP/1.0 403 OK\r\n";
+        print "Content-Type: text-plain\r\n\r\n";
+
+        print "Directory listings are not allowed\r\n";
+    } elsif (-e $filename) {
+        my $mime_type = $self->{file_type}->checktype_filename($filename);
+        $mime_type ||= 'text/plain';
+
+        print "HTTP/1.0 200 OK\r\n";
+        print "Content-Type: $mime_type\r\n\r\n";
+
+        open my $file, '<', $filename or croak "couldn't open $filename: $!";
+        print while <$file>;
+        close $file or croak "couldn't close $filename: $!";
+    } else {
+        print "HTTP/1.0 404 Not Found\r\n";
+        print "Content-Type: text-plain\r\n\r\n";
+
+        print "File not found\r\n";
+    }
 }
 
 sub _handle_script {
     my ($self, $script) = @_;
-    my $stdin = $self->stdin_handle;
-    my $stdout = $self->stdout_handle;
 
-    # setup socketpair between the untrusted app and the parent
+    # setup socketpair between the untrusted app and the API proxy
     my $app_apiproxy_fh;
     my $parent_apiproxy_fh;
     socketpair($app_apiproxy_fh, $parent_apiproxy_fh,
                AF_UNIX, SOCK_STREAM, PF_UNSPEC) or die "socketpair: $!";
 
-    my $app_pid = fork;
-    die "Couldn't fork: $!" unless defined $app_pid;
-    if ($app_pid) {
-        close $stdin;
-        close $stdout;
+    my $child_pid = fork;
+    die "Couldn't fork: $!" unless defined $child_pid;
+    if ($child_pid) {
+        # Parent
+        close STDIN;
+        close STDOUT;
         close $app_apiproxy_fh;
 
         become_apiproxy_client($parent_apiproxy_fh);
@@ -128,9 +155,63 @@ sub _handle_script {
 
     close $parent_apiproxy_fh;
 
-    dup2(fileno($stdin), 0) == 0 or die "dup2 of 0 failed: $!";
-    dup2(fileno($stdout), 1) == 1 or die "dup2 of 1 failed: $!";
-    dup2(fileno(STDERR), 2) == 2 or die "dup2 of 2 failed: $!";
+    # now setup STDOUT and STDERR pipes for the untrusted app
+    pipe my $parent_stdout, my $app_stdout;
+    pipe my $parent_stderr, my $app_stderr;
+
+    my $app_pid = fork;
+    die "Couldn't fork: $!" unless defined $app_pid;
+    if ($app_pid) {
+        # Parent
+        close $app_apiproxy_fh;
+        close $app_stdout;
+        close $app_stderr;
+
+        my ($buf_stdout, $buf_stderr);
+        my $sel = IO::Select->new($parent_stdout, $parent_stderr);
+
+        READ_LOOP:
+        while (my @ready = $sel->can_read) {
+            foreach my $fh (@ready) {
+                local $/ = undef; # Read as much as we can each time
+                my $data = <$fh>;
+                last READ_LOOP unless defined $data; # EOF
+
+                if ($fh == $parent_stdout) {
+                    $buf_stdout .= $data;
+                } elsif ($fh == $parent_stderr) {
+                    print STDERR $data;
+                    $buf_stderr .= $data;
+                }
+            }
+        }
+
+        # Wait for the app to close
+        waitpid $app_pid, 0;
+
+        if ($?) {
+            # App exited with a non-zero return code - show error page
+            print "HTTP/1.0 500 Internal Server Error\r\n";
+            print "Content-Type: text/plain\r\n\r\n";
+
+            print $buf_stderr;
+        }
+        else {
+            # App finished - show output
+            print "HTTP/1.0 200 OK\r\n";
+
+            print $buf_stdout;
+        }
+
+        exit 0;
+    }
+
+    close $parent_stdout;
+    close $parent_stderr;
+
+    dup2(fileno(STDIN), 0) == 0 or die "dup2 of 0 failed: $!";
+    dup2(fileno($app_stdout), 1) == 1 or die "dup2 of 1 failed: $!";
+    dup2(fileno($app_stderr), 2) == 2 or die "dup2 of 2 failed: $!";
     dup2(fileno($app_apiproxy_fh), 3) == 3 or die "dup2 of 3 failed: $!";
 
     my $appdir = $self->{pae_appdir};
@@ -148,7 +229,7 @@ sub _handle_script {
          "-I../protobuf-perl/perl/lib",  # Perl protobuf stuff
          "-I../protobuf-perl/perl/cpanlib",
          qw(-I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect),
-         "-I$appdir", "$appdir/$script";
+         "-I$appdir", $script or die "exec failed: $!";
 }
 
 
