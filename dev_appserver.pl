@@ -61,6 +61,5 @@ my $app_dir = shift;
 usage() unless $app_dir;
 die "Directory doesn't exist.\n" unless -d $app_dir;
 die "Forbidden characters in directory name.\n" if $app_dir =~ /[^\w\-\/\.]/;
-die "Directory doesn't contain an app.pl file.\n" unless -e "$app_dir/app.pl";
 
 AppEngine::Server->new($opts{port}, $app_dir)->run;
