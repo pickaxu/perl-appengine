@@ -40,9 +40,9 @@ use warnings;
 package AppEngine::API::Users;
 
 use AppEngine::APIProxy;
-use AppEngine::Service::Users;
+use AppEngine::Service::Base;
 
-use base(Exporter);
+use base qw(Exporter);
 
 our @EXPORT = qw(
     users_create_login_url
@@ -63,11 +63,13 @@ dest_url can be full URL or a path relative to your application's domain.
 
 sub users_create_login_url {
     my ($dest_url) = @_;
-  my $req = user_service_pb.StringProto();
-  my $resp = user_service_pb.StringProto();
-  $req->set_value($dest_url);
-  _do_req('user', 'CreateLoginURL', $req, $resp) or return undef;
-  return $resp->value();
+    my $req = AppEngine::Service::StringProto->new;
+    my $resp = AppEngine::Service::StringProto->new;
+
+    $req->set_value($dest_url);
+    _do_req('user', 'CreateLoginURL', $req, $resp) or return undef;
+
+    return $resp->value;
 }
 
 =pod
@@ -82,11 +84,13 @@ dest_url can be full URL or a path relative to your application's domain.
 
 sub users_create_logout_url {
     my ($dest_url) = @_;
-  my $req = user_service_pb.StringProto();
-  my $resp = user_service_pb.StringProto();
-  $req->set_value($dest_url);
-  _do_req('user', 'CreateLogoutURL', $req, $resp) or return undef;
-  return $resp->value();
+    my $req = AppEngine::Service::StringProto->new;
+    my $resp = AppEngine::Service::StringProto->new;
+
+    $req->set_value($dest_url);
+    _do_req('user', 'CreateLogoutURL', $req, $resp) or return undef;
+
+    return $resp->value;
 }
 
 =pod
@@ -99,7 +103,7 @@ if the user is signed in, or None if the user is not signed in.
 =cut
 
 sub users_get_current_user {
-    return AppEngine::API::Users::User->new();
+    return AppEngine::API::Users::User->new;
 }
 
 =pod 
@@ -111,7 +115,7 @@ Returns True if the current user is signed in and is currently registered as an 
 =cut
 
 sub users_is_current_user_admin {
-  return ($ENV{USER_IS_ADMIN} == '0');
+    return $ENV{USER_IS_ADMIN};
 }
 
 1;
@@ -140,9 +144,9 @@ sub new {
 
     die 'User not found.' unless defined $email;
 
-    return bless { 
-        email => $email, 
-        auth_domain => $auth_domain 
+    return bless {
+        email => $email,
+        auth_domain => $auth_domain
     }, $class;
 }
 
@@ -161,7 +165,7 @@ sub nickname {
 
     my $suffix = '@' . $self->{auth_domain};
 
-    return ($self->{email} && $self->{auth_domain} && substr($self->{email}, -length($suffix)) eq $suffix))
+    return ($self->{email} && $self->{auth_domain} && substr($self->{email}, - length($suffix)) eq $suffix)
         ? substr($self->{email}, 0, length($self->{email}) - length($suffix))
         : $self->{email};
 }
