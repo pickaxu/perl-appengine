@@ -5,12 +5,14 @@ use warnings;
 
 use AppEngine::API::Datastore::Entity;
 use AppEngine::APIProxy;
+use AppEngine::Python;
 use Data::Dumper;
 use DBI;
 use Test::More tests => 37;
 
+AppEngine::Python::initialize('appname');
 $AppEngine::APIProxy::bypass_client = 1;
-$ENV{APPLICATION_ID} = 'apiproxy-python';
+$ENV{APPLICATION_ID} = 'appname';
 
 my $kind = 'DBDTest_' . $$ . '_' . int(rand(100000));
 

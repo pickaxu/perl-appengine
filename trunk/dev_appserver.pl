@@ -54,12 +54,11 @@ usage() unless GetOptions(\%opts,
     # options from python_sdk_partial/dev_appserver.py
     );
 
-# Default options
-$opts{port} ||= 9000;
-
 my $app_dir = shift;
 usage() unless $app_dir;
 die "Directory doesn't exist.\n" unless -d $app_dir;
 die "Forbidden characters in directory name.\n" if $app_dir =~ /[^\w\-\/\.]/;
 
-AppEngine::Server->new($opts{port}, $app_dir)->run;
+AppEngine::Server->new($app_dir, {
+    ARG_PORT => $opts{port},
+})->run;

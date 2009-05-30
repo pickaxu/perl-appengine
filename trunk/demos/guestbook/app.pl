@@ -16,6 +16,7 @@ use CGI;
 use Data::Dumper;
 
 my $cgi = CGI->new;
+print $cgi->header;
 
 if ($ENV{REQUEST_METHOD} eq 'POST') {
     my $greeting = AppEngine::API::Datastore::Entity->new('Greeting');

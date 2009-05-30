@@ -26,6 +26,7 @@ use warnings;
 
 use AppEngine::APIProxy qw(become_apiproxy_client);
 use AppEngine::AppConfig;
+use AppEngine::Python;
 use Carp;
 use Data::Dumper;
 use English;
@@ -41,13 +42,18 @@ use Socket;
 our $VERSION = "0.01";
 
 sub new {
-    my $class = shift;
-    my ($port, $app_dir) = @_;
+    my ($class, $app_dir, $args) = @_;
 
-    my $self  = $class->SUPER::new($port);
+    # Default arguments (the names for these come from dev_appserver_main.py)
+    $args                  ||= {};
+    $args->{ARG_PORT}      ||= 9000;
+    $args->{ARG_LOGIN_URL} ||= '/_ah/login';
+
+    my $self  = $class->SUPER::new($args->{ARG_PORT});
     $self->{pae_appdir} = $app_dir;
     $self->{app_config} = AppEngine::AppConfig->new(catfile($app_dir, 'app.yaml'));
     $self->{file_type}  = File::Type->new;
+    $self->{args}       = $args;
 
     return ($self);
 }
@@ -87,6 +93,14 @@ sub handler {
     my $path = $ENV{PATH_INFO};
     $path =~ s/\.\.//g; # Disallow directory traversal
 
+    # Check if it's an internal URL (eg. login)
+    my $login_url = $self->{args}{ARG_LOGIN_URL};
+    if ($path =~ m/^$login_url/) {
+        $self->_handle_login($path);
+        return;
+    }
+
+    # Otherwise let the app handle it
     my ($type, $file) = $self->{app_config}->handler_for_path($path);
 
     unless ($type) {
@@ -135,6 +149,8 @@ sub _handle_static {
 sub _handle_script {
     my ($self, $script) = @_;
 
+    AppEngine::Python::initialize($self->{app_config}->app_name, $self->{args});
+
     # setup socketpair between the untrusted app and the API proxy
     my $app_apiproxy_fh;
     my $parent_apiproxy_fh;
@@ -155,7 +171,37 @@ sub _handle_script {
 
     close $parent_apiproxy_fh;
 
-    # now setup STDOUT and STDERR pipes for the untrusted app
+    $self->_run_handler(sub {
+        dup2(fileno($app_apiproxy_fh), 3) == 3 or die "dup2 of 3 failed: $!";
+
+        my $appdir = $self->{pae_appdir};
+
+        $ENV{CLASS_MOP_NO_XS} = 1;
+        $ENV{APPLICATION_ID} = $self->{app_config}->app_name;
+
+        exec "perl",
+            "-Ilib",  # AppEngine::APIProxy, ::Service::Memcache, etc.
+            "-Icpanlib/Class-MOP/lib",
+            "-I../protobuf-perl/perl/lib",  # Perl protobuf stuff
+            "-I../protobuf-perl/perl/cpanlib",
+            qw(-I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect),
+            "-I$appdir", $script or die "exec failed: $!";
+    });
+}
+
+sub _handle_login {
+    my ($self, $path) = @_;
+
+    $self->_run_handler(sub {
+        AppEngine::Python::initialize($self->{app_config}->app_name, $self->{args});
+        AppEngine::Python::handle_login();
+    });
+}
+
+sub _run_handler {
+    my ($self, $handler) = @_;
+
+    # setup STDOUT and STDERR pipes for the untrusted app
     pipe my $parent_stdout, my $app_stdout;
     pipe my $parent_stderr, my $app_stderr;
 
@@ -163,7 +209,6 @@ sub _handle_script {
     die "Couldn't fork: $!" unless defined $app_pid;
     if ($app_pid) {
         # Parent
-        close $app_apiproxy_fh;
         close $app_stdout;
         close $app_stderr;
 
@@ -189,20 +234,20 @@ sub _handle_script {
         # Wait for the app to close
         waitpid $app_pid, 0;
 
+        my $response;
         if ($?) {
             # App exited with a non-zero return code - show error page
-            print "HTTP/1.0 500 Internal Server Error\r\n";
-            print "Content-Type: text/plain\r\n\r\n";
-
-            print $buf_stderr;
-        }
-        else {
+            $response = $self->_build_response(
+                "HTTP/1.0 500 Internal Server Error\x0d\x0a" . 
+                "Content-Type: text/plain\x0d\x0a\x0d\x0a" .
+                $buf_stderr
+            );
+        } else {
             # App finished - show output
-            print "HTTP/1.0 200 OK\r\n";
-
-            print $buf_stdout;
+            $response = $self->_build_response($buf_stdout);
         }
 
+        print $response->as_string;
         exit 0;
     }
 
@@ -212,25 +257,60 @@ sub _handle_script {
     dup2(fileno(STDIN), 0) == 0 or die "dup2 of 0 failed: $!";
     dup2(fileno($app_stdout), 1) == 1 or die "dup2 of 1 failed: $!";
     dup2(fileno($app_stderr), 2) == 2 or die "dup2 of 2 failed: $!";
-    dup2(fileno($app_apiproxy_fh), 3) == 3 or die "dup2 of 3 failed: $!";
 
-    my $appdir = $self->{pae_appdir};
-
-    $ENV{CLASS_MOP_NO_XS} = 1;
-
-    # TODO(davidsansome): the python SDK actually checks this now - find a 
-    # workaround?
-    #$ENV{APPLICATION_ID} = $self->{app_config}->app_name;
-    $ENV{APPLICATION_ID} = 'apiproxy-python';
-
-    exec "perl",
-         "-Ilib",  # AppEngine::APIProxy, ::Service::Memcache, etc.
-         "-Icpanlib/Class-MOP/lib",
-         "-I../protobuf-perl/perl/lib",  # Perl protobuf stuff
-         "-I../protobuf-perl/perl/cpanlib",
-         qw(-I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect),
-         "-I$appdir", $script or die "exec failed: $!";
+    &$handler();
+    exit 0;
 }
 
+# Stolen from CGI::Application::Server, which was in turn stolen from
+# HTTP::Request::AsCGI
+sub _build_response {
+    my ( $self, $stdout ) = @_;
 
+    $stdout =~ s{(.*?\x0d?\x0a\x0d?\x0a)}{}xsm;
+    my $headers = $1;
 
+    unless ( defined $headers ) {
+        $headers = "HTTP/1.1 500 Internal Server Error\x0d\x0a";
+    }
+
+    unless ( $headers =~ /^HTTP/ ) {
+        $headers = "HTTP/1.1 200 OK\x0d\x0a" . $headers;
+    }
+
+    my $response = HTTP::Response->parse($headers);
+    $response->date( time() ) unless $response->date;
+
+    my $message = $response->message;
+    my $status  = $response->header('Status');
+
+    $response->header( Connection => 'close' );
+
+    if ( $message && $message =~ /^(.+)\x0d$/ ) {
+        $response->message($1);
+    }
+
+    if ( $status && $status =~ /^(\d\d\d)\s?(.+)?$/ ) {
+        my $code = $1;
+        $message = $2 || HTTP::Status::status_message($code);
+
+        $response->code($code);
+        $response->message($message);
+    }
+
+    my $length = length $stdout;
+
+    if ( $response->code == 500 && !$length ) {
+        $response->content( $response->error_as_HTML );
+        $response->content_type('text/html');
+
+        return $response;
+    }
+
+    $response->add_content($stdout);
+    $response->content_length($length);
+
+    return $response;
+}
+
+1;
