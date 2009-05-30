@@ -41,6 +41,7 @@ package AppEngine::API::Users;
 
 use AppEngine::APIProxy;
 use AppEngine::Service::Base;
+use Readonly;
 
 use base qw(Exporter);
 
@@ -50,6 +51,8 @@ our @EXPORT = qw(
     users_get_current_user
     users_is_current_user_admin
 );
+
+Readonly my $SERVICE => 'user';
 
 =pod
 
@@ -67,7 +70,9 @@ sub users_create_login_url {
     my $resp = AppEngine::Service::StringProto->new;
 
     $req->set_value($dest_url);
-    _do_req('user', 'CreateLoginURL', $req, $resp) or return undef;
+
+    my $resp_bytes = AppEngine::APIProxy::sync_call($SERVICE, 'CreateLoginURL', $req);
+    $resp->parse_from_string($resp_bytes);
 
     return $resp->value;
 }
@@ -88,7 +93,9 @@ sub users_create_logout_url {
     my $resp = AppEngine::Service::StringProto->new;
 
     $req->set_value($dest_url);
-    _do_req('user', 'CreateLogoutURL', $req, $resp) or return undef;
+
+    my $resp_bytes = AppEngine::APIProxy::sync_call($SERVICE, 'CreateLogoutURL', $req);
+    $resp->parse_from_string($resp_bytes);
 
     return $resp->value;
 }
@@ -98,7 +105,7 @@ sub users_create_logout_url {
 =head2 users_get_current_user()
 
 Returns the User object for the current user (the user who made the request being processed) 
-if the user is signed in, or None if the user is not signed in.
+if the user is signed in, or undef if the user is not signed in.
 
 =cut
 
@@ -110,12 +117,12 @@ sub users_get_current_user {
 
 =head2 users_is_current_user_admin()
 
-Returns True if the current user is signed in and is currently registered as an administrator of this application.
+Returns true if the current user is signed in and is currently registered as an administrator of this application.
 
 =cut
 
 sub users_is_current_user_admin {
-    return $ENV{USER_IS_ADMIN};
+    return exists $ENV{USER_IS_ADMIN} && $ENV{USER_IS_ADMIN} eq '1';
 }
 
 1;
@@ -142,7 +149,7 @@ sub new {
     $auth_domain = $ENV{AUTH_DOMAIN} unless defined $auth_domain;
     $email = $ENV{USER_EMAIL} unless defined $email;
 
-    die 'User not found.' unless defined $email;
+    return undef unless $email;
 
     return bless {
         email => $email,

@@ -99,7 +99,8 @@ proto_class = {
     "DeleteIndex": (entity.CompositeIndex, base.VoidProto),
     },
   "user": {
-    # TODO(bradfitz): proto files not yet released
+    "CreateLoginURL": (base.StringProto, base.StringProto),
+    "CreateLogoutURL": (base.StringProto, base.StringProto),
     },
   "urlfetch": {
     "Fetch": (urlfetch_service_pb.URLFetchRequest,
