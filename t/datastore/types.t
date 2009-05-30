@@ -9,7 +9,7 @@ use AppEngine::API::Users;
 use AppEngine::APIProxy;
 use AppEngine::Python;
 use Data::Dumper;
-use Test::More tests => 16;
+use Test::More tests => 10;
 
 AppEngine::Python::initialize('appname');
 $AppEngine::APIProxy::bypass_client = 1;
@@ -36,3 +36,13 @@ $entity->put;
 $entity = AppEngine::API::Datastore::get($entity->key);
 compare_users($entity->{user1}, $user1);
 compare_users($entity->{user2}, $user2);
+
+
+# Test putting and getting undef
+$entity = AppEngine::API::Datastore::Entity->new('kind');
+$entity->{nothing} = undef;
+ok(exists $entity->{nothing});
+$entity->put;
+
+$entity = AppEngine::API::Datastore::get($entity->key);
+ok(!exists $entity->{nothing});
