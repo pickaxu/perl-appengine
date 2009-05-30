@@ -1,0 +1,35 @@
+// Reverse engineered from the Python SDK
+
+syntax = "proto2";
+
+import "api_base.proto";
+
+package appengine_user;
+
+option perl_message_package = "AppEngine::Service::User";
+option perl_file_package = "AppEngine::Service::User";
+
+
+message UserServiceError {
+  enum ErrorCode {
+    OK = 0;
+    REDIRECT_URL_TOO_LONG = 1;
+    NOT_ALLOWED = 2;
+  }
+}
+
+service UserService {
+  // Computes the login URL for this request and specified destination URL.
+  // Argument is the desired final destination URL for the user once login is
+  // complete. If 'dest_url' does not have a host specified, we will use the
+  // host from the current request.
+  rpc CreateLoginURL(appengine_base.StringProto)
+      returns (appengine_base.StringProto) {};
+
+  // Computes the logout URL for this request and specified destination URL.
+  // Argument is the desired final destination URL for the user once logout is
+  // complete. If 'dest_url' does not have a host specified, we will use the
+  // host from the current request.
+  rpc CreateLogoutURL(appengine_base.StringProto)
+      returns (appengine_base.StringProto) {};
+}
