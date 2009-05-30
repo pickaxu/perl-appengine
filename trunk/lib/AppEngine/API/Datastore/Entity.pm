@@ -291,6 +291,7 @@ sub _to_pb {
     # Add properties
     while ((my $key, my $value) = each %$self) {
         next if $key =~ m/^_/;
+        next unless defined $value;
 
         my $property_value = $pb->add_property;
         _property_to_pb($property_value, $key, $value);
