@@ -40,10 +40,15 @@ while (my $greeting = $query->fetch) {
     print '<blockquote>', $greeting->{content}, '</blockquote>';
 }
 
-print q(<form action="/" method="post">
-          <div><textarea name="content" rows="3" cols="60"></textarea></div>
-          <div><input type="submit" value="Sign Guestbook"></div>
-        </form>
-      </body>
-    </html>
-);
+print '<form action="/" method="post">';
+print '  <div><textarea name="content" rows="3" cols="60"></textarea></div>';
+print '  <div><input type="submit" value="Sign Guestbook"></div>';
+print '</form>';
+
+if (users_get_current_user()) {
+    print '<a href="' . users_create_logout_url('/') . '">Logout</a>';
+} else {
+    print '<a href="' . users_create_login_url('/') . '">Login</a>';
+}
+
+print '</body></html>';

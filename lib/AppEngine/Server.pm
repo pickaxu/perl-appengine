@@ -68,6 +68,12 @@ sub accept_hook {
 sub post_setup_hook {
     my $self = shift;
     $self->setup_server_url;
+
+    $ENV{HTTP_HOST} =~ m/^([^:]+)/;
+    $ENV{SERVER_NAME} = $1;
+    $ENV{SERVER_PORT} = $self->{args}{ARG_PORT} . '';
+
+    $ENV{APPLICATION_ID} = $self->{app_config}->app_name;
 }
 
 sub setup {
@@ -177,7 +183,6 @@ sub _handle_script {
         my $appdir = $self->{pae_appdir};
 
         $ENV{CLASS_MOP_NO_XS} = 1;
-        $ENV{APPLICATION_ID} = $self->{app_config}->app_name;
 
         exec "perl",
             "-Ilib",  # AppEngine::APIProxy, ::Service::Memcache, etc.
