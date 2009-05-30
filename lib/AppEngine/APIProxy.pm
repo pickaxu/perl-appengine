@@ -82,34 +82,15 @@ sub become_apiproxy_client {
 }
 
 sub _make_request {
-    my ($service, $method, $pb_request) = @_;
-
-    my $ua = LWP::UserAgent->new;
-
-    my $req = POST "http://127.0.0.1:8080/do_req", [
-        service => $service,
-        method => $method,
-        request => $pb_request, ];
-
-    # TODO(davidsansome): re-enable this with a --debug option
-    # print STDERR "Sending request: ", $req->as_string, "\n";
-    my $res = $ua->request($req);
-
-    my $success = $res->is_success ? 1 : 0;
+    my $success = 1;
     my $body;
-    if ($success) {
-        if ($res->content =~ /^Response: \[(.*)\]\s*$/s) {
-            $body = $1;
-        } else {
-            $body = $res->content;
-            $success = 0;
-        }
-    } else {
-        $body = $res->status_line;
-    }
 
-    # print STDERR "Got apiproxy result (for $service, $method) of success=$success:\n";
-    # print STDERR Dumper($body);
+    eval { $body = AppEngine::Python::make_request(@_) };
+
+    if ($@) {
+        $body = $@;
+        $success = 0;
+    }
 
     return ($success, $body);
 }

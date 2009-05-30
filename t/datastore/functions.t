@@ -6,11 +6,13 @@ use warnings;
 use AppEngine::API::Datastore;
 use AppEngine::API::Datastore::Entity;
 use AppEngine::APIProxy;
+use AppEngine::Python;
 use Data::Dumper;
 use Test::More tests => 17;
 
+AppEngine::Python::initialize('appname');
 $AppEngine::APIProxy::bypass_client = 1;
-$ENV{APPLICATION_ID} = 'apiproxy-python';
+$ENV{APPLICATION_ID} = 'appname';
 
 # Test put and get with one entity
 my $entity = AppEngine::API::Datastore::Entity->new('test');

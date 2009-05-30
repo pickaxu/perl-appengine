@@ -6,11 +6,13 @@ use warnings;
 use AppEngine::API::Datastore::Entity;
 use AppEngine::API::Datastore::Query;
 use AppEngine::APIProxy;
+use AppEngine::Python;
 use Data::Dumper;
 use Test::More tests => 35;
 
+AppEngine::Python::initialize('appname');
 $AppEngine::APIProxy::bypass_client = 1;
-$ENV{APPLICATION_ID} = 'apiproxy-python';
+$ENV{APPLICATION_ID} = 'appname';
 
 # Get a unique-ish kind, so we don't have to clear the DB before running tests
 my $kind = 'QueryTest_' . $$ . '_' . rand(100000);
