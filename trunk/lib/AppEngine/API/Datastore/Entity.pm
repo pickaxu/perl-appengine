@@ -263,7 +263,11 @@ sub _from_pb {
             $value = $value_pb->doubleValue;
         } elsif ($value_pb->has_stringValue) {
             $value = $value_pb->stringValue;
+        } elsif ($value_pb->has_uservalue) {
+            $value = AppEngine::API::Users::User::_from_pb(
+                $value_pb->uservalue);
         }
+        # TODO(davidsansome): reference values
 
         $self->{$element->name} = $value;
     }
@@ -306,19 +310,22 @@ sub _property_to_pb {
     $property_value->set_name($key);
     $property_value->set_multiple(0);
 
-    # TODO(davidsansome): nicer way to find type of a scalar?
-
-    my $type = ref $value;
-    if ($type eq 'AppEngine::API::Datastore::Key') {
-        $value->_to_reference_value_pb($property_value->value->referencevalue);
-    } elsif ($type eq 'AppEngine::API::Datastore::Entity') {
-        $value->key->_to_reference_value_pb($property_value->value->referencevalue);
-    } elsif ($value =~ m/^[+-]?\d+$/) {
-        $property_value->value->set_int64Value($value);
-    } elsif ($value =~ m/^[+-]?[\d.]+$/) {
-        $property_value->value->set_doubleValue($value);
+    if (ref $value) {
+        if ($value->isa('AppEngine::API::Datastore::Key')) {
+            $value->_to_reference_value_pb($property_value->value->referencevalue);
+        } elsif ($value->isa('AppEngine::API::Datastore::Entity')) {
+            $value->key->_to_reference_value_pb($property_value->value->referencevalue);
+        } elsif ($value->isa('AppEngine::API::Users::User')) {
+            $value->_to_pb($property_value->value->uservalue);
+        }
     } else {
-        $property_value->value->set_stringValue($value);
+        if ($value =~ m/^[+-]?\d+$/) {
+            $property_value->value->set_int64Value($value);
+        } elsif ($value =~ m/^[+-]?[\d.]+$/) {
+            $property_value->value->set_doubleValue($value);
+        } else {
+            $property_value->value->set_stringValue($value);
+        }
     }
 }
 
