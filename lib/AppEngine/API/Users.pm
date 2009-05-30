@@ -201,6 +201,20 @@ sub auth_domain {
     return $_[0]->{auth_domain};
 }
 
+sub _to_pb {
+    my ($self, $pb) = @_;
+
+    $pb->set_email($self->email);
+    $pb->set_auth_domain($self->auth_domain);
+    $pb->set_gaiaid(0);
+}
+
+sub _from_pb {
+    my ($pb) = @_;
+
+    return AppEngine::API::Users::User->new($pb->email, $pb->auth_domain);
+}
+
 1;
 
 =pod
