@@ -11,7 +11,9 @@ let us know if you find an error or discrepancy.
 
 = Status of this Documentation =
 
-  * 2009-06-20 spadkins - I executed these instructions on my Ubuntu Linux laptop, and they worked.
+  * 2009-06-20 spadkins - I executed these instructions on my Ubuntu Linux laptop, and they worked up until the "python_sdk_partial/dev_appserver.py apiproxy_python" command
+
+   ERROR:root:Application configuration file not found in apiproxy_python
 
 = Installing Required Perl Modules from CPAN =
 
@@ -63,6 +65,8 @@ NOTE: Before you install Moose (above), you might want to install the following 
 If you did install the module called Class::C3::XS,
 it needs to be uninstalled. I did the following to get rid
 of it. You may have to adjust your paths appropriately.
+
+NOTE: As of 2009-06-20, I didn't have to do the following any more because Class::C3::XS had not been installed.
 
 {{{
    su -   # become root
