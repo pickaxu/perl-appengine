@@ -35,6 +35,29 @@ uninstall it later.
    cpan> install Moose::Policy
    cpan> exit
    exit   # become a normal user again
+
+NOTE: Before you install Moose (above), you might want to install the following modules.
+      Some will be drawn in automatically my installing Moose.
+      Others are useful in the Moose tests.
+
+   install DateTime
+   install DateTime::Calendar::Mayan
+   install Regexp::Common
+   install Locale::US
+   install HTTP::Headers
+   install Params::Coerce
+   install URI
+   install File::Temp
+   install Test::Tester
+   install Test::Output
+   install IO::String
+   install IO::File
+   install Module::Refresh
+   install Test::Deep
+   install DBM::Deep
+   install Declare::Constraints::Simple
+   install Class::MOP
+
 }}}
 
 If you did install the module called Class::C3::XS,
