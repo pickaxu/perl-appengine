@@ -11,7 +11,7 @@ let us know if you find an error or discrepancy.
 
 = Status of this Documentation =
 
-* 2009-06-20 spadkins - I executed these instructions on my Ubuntu Linux laptop, and they worked.
+  * 2009-06-20 spadkins - I executed these instructions on my Ubuntu Linux laptop, and they worked.
 
 = Installing Required Perl Modules from CPAN =
 
