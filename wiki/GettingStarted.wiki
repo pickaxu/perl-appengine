@@ -66,8 +66,6 @@ If you did install the module called Class::C3::XS,
 it needs to be uninstalled. I did the following to get rid
 of it. You may have to adjust your paths appropriately.
 
-NOTE: As of 2009-06-20, I didn't have to do the following any more because Class::C3::XS had not been installed.
-
 {{{
    su -   # become root
    rm /usr/lib/perl5/site_perl/5.8.8/i686-linux/Class/C3/XS.pm
@@ -81,6 +79,8 @@ NOTE: As of 2009-06-20, I didn't have to do the following any more because Class
 Note: draegtun has suggested that setting the CLASS_MOP_NO_XS environment variable
 would make the uninstall of Class::C3::XS unnecessary. I (spadkins) tried this
 and was unable to make that work.
+
+NOTE: As of 2009-06-20, I didn't have to do that any more because Class::C3::XS had not been installed (spadkins).
 
 = Ensure Python is Installed and Up-to-Date =
 
