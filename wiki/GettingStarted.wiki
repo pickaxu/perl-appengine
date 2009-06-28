@@ -33,6 +33,11 @@ uninstall it later.
    cpan> install HTTP::Server::Simple::CGI
    cpan> install Net::Server::Fork
    cpan> install namespace::clean
+   cpan> install Readonly
+   cpan> install Inline
+   cpan> install Inline::C
+   cpan> install Inline::Python
+   cpan> install File::Type
    cpan> install Moose
    cpan> install Moose::Policy
    cpan> exit
@@ -139,15 +144,6 @@ keep up to date.)
 The code currently checked in to the perl-appengine subversion repository is
 targeted to be the development kit.
 
-First you have to fire up the Python version of the development server 
-running an API proxy application.  In a first terminal window,
-type the following.
-
-{{{
-   cd $HOME/src/perl-appengine
-   python_sdk_partial/dev_appserver.py apiproxy_python
-}}}
-
 To run one of the demos, choose a demo such as "demos/guestbook".
 Then in a second terminal window, type the following.
 
@@ -165,8 +161,17 @@ The server output is something like the following.
  User Not Defined.  Defaulting to EUID '102'
 }}}
 
-Then in a third terminal window, go to lynx to access the test page.
+Then in another terminal window, go to lynx to access the test page.
 
 {{{
    lynx localhost:9000
 }}}
+
+or view the application from a local web browser by browsing to http://localhost:9000.
+
+Note: In the background, the Perl program has kicked off 
+the Python version of the development server 
+running an API proxy application.
+It used to be required that you kick this off separately, but that has 
+been changed.
+
