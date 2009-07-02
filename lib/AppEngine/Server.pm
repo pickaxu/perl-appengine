@@ -185,7 +185,7 @@ sub _handle_script {
         $ENV{CLASS_MOP_NO_XS} = 1;
         my @allowed_modules = qw(
             B
-            Class::Mop
+            Class::MOP
             DBI
             Devel::GlobalDestruction
             Sub::Name
