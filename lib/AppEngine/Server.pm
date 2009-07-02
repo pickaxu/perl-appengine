@@ -183,14 +183,22 @@ sub _handle_script {
         my $appdir = $self->{pae_appdir};
 
         $ENV{CLASS_MOP_NO_XS} = 1;
+        my @allowed_modules = qw(
+            B
+            Class::Mop
+            DBI
+            Devel::GlobalDestruction
+            Sub::Name
+        );
 
-        exec "perl",
-            "-Ilib",  # AppEngine::APIProxy, ::Service::Memcache, etc.
-            "-Icpanlib/Class-MOP/lib",
-            "-I../protobuf-perl/perl/lib",  # Perl protobuf stuff
-            "-I../protobuf-perl/perl/cpanlib",
-            qw(-I../sys-protect/blib/lib -I../sys-protect/blib/arch -MSys::Protect),
-            "-I$appdir", $script or die "exec failed: $!";
+        exec 'perl',
+             '-Ilib',  # AppEngine::APIProxy, ::Service::Memcache, etc.
+             '-I../protobuf-perl/perl/lib',  # Perl protobuf stuff
+             '-I../protobuf-perl/perl/cpanlib',
+             '-I../sys-protect/blib/lib',
+             '-I../sys-protect/blib/arch',
+             '-MSys::Protect allow => [qw(' . join(' ', @allowed_modules) . ')]',
+             "-I$appdir", $script or die "exec failed: $!";
     });
 }
 
