@@ -137,9 +137,11 @@ keep up to date.)
 
    cd $HOME/src/protobuf-perl
    svn update
+   make
 
    cd $HOME/src/perl-appengine
    svn update
+   make
 }}}
 
 = Running the Development Server =
