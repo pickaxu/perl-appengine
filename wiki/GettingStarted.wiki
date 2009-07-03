@@ -11,9 +11,7 @@ let us know if you find an error or discrepancy.
 
 = Status of this Documentation =
 
-  * 2009-06-20 spadkins - I executed these instructions on my Ubuntu Linux laptop, and they worked up until the "python_sdk_partial/dev_appserver.py apiproxy_python" command
-
-   ERROR:root:Application configuration file not found in apiproxy_python
+  * 2009-07-03 spadkins - I executed these instructions on my Ubuntu Linux laptop, and they worked. I was able to run the sample guestbook application.
 
 = Installing Required Perl Modules from CPAN =
 
