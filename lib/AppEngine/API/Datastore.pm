@@ -11,6 +11,7 @@ use AppEngine::Service::Entity;
 use Carp;
 use Readonly;
 
+Readonly my $DEFAULT_TRANSACTION_RETRIES => 3;
 Readonly my $SERVICE => 'datastore_v3';
 
 our $current_transaction;
@@ -120,31 +121,53 @@ sub in_transaction {
 sub run_in_transaction {
     my ($pkg, $sub, @args) = @_;
 
+    return $pkg->run_in_transaction_custom_retries(
+        $DEFAULT_TRANSACTION_RETRIES, $sub, @args);
+}
+
+sub run_in_transaction_custom_retries {
+    my ($pkg, $retries, $sub, @args) = @_;
+
     if ($pkg->in_transaction) {
         croak 'cannot call run_in_transaction from within a transaction';
     }
 
-    # Begin transaction
-    local $current_transaction = $pkg->_begin_transaction;
-    local $rollback_requested  = 0;
+    ATTEMPT:
+    for my $attempt (1..$retries) {
+        # Begin transaction
+        local $current_transaction = $pkg->_begin_transaction;
+        local $rollback_requested  = 0;
 
-    # Call the user's function
-    my $ret = eval { &$sub(@args) };
+        # Call the user's function
+        my $ret = eval { &$sub(@args) };
 
-    # Commit or rollback
-    if ($@) {
-        $pkg->_rollback_transaction();
+        # Commit or rollback
+        if ($@) {
+            $pkg->_rollback_transaction();
 
-        if ($rollback_requested) {
-            return;
+            if ($rollback_requested) {
+                # The user asked for the transaction to be rolled back
+                return;
+            } else {
+                die $@;
+            }
         } else {
-            die $@;
+            # Try to commit the transaction
+            eval { $pkg->_commit_transaction() };
+
+            if ($@ && $@ =~ m/^ApplicationError: 2/) {
+                # 2 is the error code for CONCURRENT_TRANSACTION, so have
+                # another go
+                next ATTEMPT;
+            } elsif ($@) {
+                die $@;
+            }
         }
-    } else {
-        $pkg->_commit_transaction();
+
+        return $ret;
     }
 
-    return $ret;
+    croak 'transaction could not be committed';
 }
 
 sub rollback {
