@@ -53,7 +53,7 @@ message Query {
       EXISTS = 7;
     }
 
-    required int32 op = 6;
+    required Operator op = 6;
     repeated appengine_entity.Property property = 14;
   }
 
@@ -72,7 +72,7 @@ message Query {
     }
 
     required bytes property = 10;
-    optional int32 direction = 11 [default = 1];  // default to ASCENDING
+    optional Direction direction = 11 [default = ASCENDING];
   }
 
   // start returning results at this offset. useful for paging.

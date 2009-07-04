@@ -93,8 +93,8 @@ our $_QUERY_FILTER = Protobuf::Descriptor->new(
   fields => [
     Protobuf::FieldDescriptor->new(
       name => 'op', index => 0, number => 6,
-      type => 5, cpp_type => 1, label => 2,
-      default_value => 0,
+      type => 14, cpp_type => 8, label => 2,
+      default_value => 1,
       message_type => undef, enum_type => undef, containing_type => undef,
       is_extension => FALSE, extension_scope => undef),
     Protobuf::FieldDescriptor->new(
@@ -127,7 +127,7 @@ our $_QUERY_ORDER = Protobuf::Descriptor->new(
       is_extension => FALSE, extension_scope => undef),
     Protobuf::FieldDescriptor->new(
       name => 'direction', index => 1, number => 11,
-      type => 5, cpp_type => 1, label => 1,
+      type => 14, cpp_type => 8, label => 1,
       default_value => 1,
       message_type => undef, enum_type => undef, containing_type => undef,
       is_extension => FALSE, extension_scope => undef),
@@ -562,7 +562,9 @@ eval "use AppEngine::Service::Entity;";
 eval "use AppEngine::Service::Base;";
 
 ## Fix foreign fields:
+$_QUERY_FILTER->fields_by_name('op')->set_enum_type($_QUERY_FILTER_OPERATOR);
 $_QUERY_FILTER->fields_by_name('property')->set_message_type($AppEngine::Service::Entity::_PROPERTY);
+$_QUERY_ORDER->fields_by_name('direction')->set_enum_type($_QUERY_ORDER_DIRECTION);
 $_QUERY->fields_by_name('ancestor')->set_message_type($AppEngine::Service::Entity::_REFERENCE);
 $_QUERY->fields_by_name('filter')->set_message_type($_QUERY_FILTER);
 $_QUERY->fields_by_name('order')->set_message_type($_QUERY_ORDER);
