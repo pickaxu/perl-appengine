@@ -266,8 +266,14 @@ sub _from_pb {
         } elsif ($value_pb->has_uservalue) {
             $value = AppEngine::API::Users::User::_from_pb(
                 $value_pb->uservalue);
+        } elsif ($value_pb->has_referencevalue) {
+            my $ref_key = AppEngine::API::Datastore::Key::_from_reference_value_pb(
+                $value_pb->referencevalue);
+
+            $value = AppEngine::API::Datastore::LazyEntity->new($ref_key);
+        } else {
+            croak 'unknown property value type';
         }
-        # TODO(davidsansome): reference values
 
         $self->{$element->name} = $value;
     }
