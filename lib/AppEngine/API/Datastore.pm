@@ -11,7 +11,18 @@ use Carp;
 
 use constant SERVICE => 'datastore_v3';
 
+sub new {
+    my ($pkg) = @_;
+
+    my $self = {};
+    bless $self, $pkg;
+
+    return $self;
+}
+
 sub get {
+    my $pkg = shift;
+
     my $req = AppEngine::Service::Datastore::GetRequest->new;
     my $res = AppEngine::Service::Datastore::GetResponse->new;
 
@@ -39,6 +50,8 @@ sub get {
 }
 
 sub put {
+    my $pkg = shift;
+
     my $req = AppEngine::Service::Datastore::PutRequest->new;
     my $res = AppEngine::Service::Datastore::PutResponse->new;
 
@@ -65,6 +78,8 @@ sub put {
 }
 
 sub delete {
+    my $pkg = shift;
+
     my $req = AppEngine::Service::Datastore::DeleteRequest->new;
 
     foreach my $arg (@_) {

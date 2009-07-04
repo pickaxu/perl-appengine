@@ -164,12 +164,12 @@ The method returns the Key of the stored entity.
 
 Equivalent to:
 
-    AppEngine::API::Datastore::put($entity);
+    AppEngine::API::Datastore->put($entity);
 
 =cut
 
 sub put {
-    return AppEngine::API::Datastore::put($_[0]);
+    return AppEngine::API::Datastore->put($_[0]);
 }
 
 =item delete
@@ -178,12 +178,12 @@ Deletes the model instance from the datastore.
 
 Equivalent to:
 
-    AppEngine::API::Datastore::delete($entity);
+    AppEngine::API::Datastore->delete($entity);
 
 =cut
 
 sub delete {
-    AppEngine::API::Datastore::delete($_[0]);
+    AppEngine::API::Datastore->delete($_[0]);
 }
 
 =item is_saved
@@ -211,13 +211,13 @@ is not cached.
 
 Equivalent to:
 
-    AppEngine::API::Datastore::get($entity->parent_key);
+    AppEngine::API::Datastore->get($entity->parent_key);
 
 =cut
 
 sub parent {
     # TODO(davidsansome): maybe cache this?  update POD
-    return AppEngine::API::Datastore::get($_[0]->parent_key);
+    return AppEngine::API::Datastore->get($_[0]->parent_key);
 }
 
 =item parent_key

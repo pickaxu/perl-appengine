@@ -14,6 +14,8 @@ AppEngine::Python::initialize('appname');
 $AppEngine::APIProxy::bypass_client = 1;
 $ENV{APPLICATION_ID} = 'appname';
 
+my $db = AppEngine::API::Datastore->new;
+
 # Test put and get with one entity
 my $entity = AppEngine::API::Datastore::Entity->new('test');
 $entity->{foo} = 'bar';
@@ -26,15 +28,15 @@ ok($entity->key->has_id_or_name);
 ok($key->has_id_or_name);
 is_deeply($key, $entity->key);
 
-$entity = AppEngine::API::Datastore::get($key);
+$entity = $db->get($key);
 is_deeply($key, $entity->key);
 is($entity->{foo}, 'bar');
 
 # Delete that entity
-AppEngine::API::Datastore::delete($key);
+$db->delete($key);
 
 # Trying to get it again should return undef
-$entity = AppEngine::API::Datastore::get($key);
+$entity = $db->get($key);
 ok(!$entity);
 
 
@@ -43,14 +45,14 @@ $entity = AppEngine::API::Datastore::Entity->new('test', key_name => 'wibble');
 $key = $entity->put;
 is($key->name, 'wibble');
 
-$entity = AppEngine::API::Datastore::get($key);
+$entity = $db->get($key);
 is($entity->key->name, 'wibble');
 
 # Make a child of this entity
 my $child = AppEngine::API::Datastore::Entity->new('test', key_name => 'wobble', parent => $entity);
 my $child_key = $child->put;
 
-$child = AppEngine::API::Datastore::get($child_key);
+$child = $db->get($child_key);
 is($child->key->name, 'wobble');
 is($child->parent_key->name, 'wibble');
 is($child->parent->key->name, 'wibble');
@@ -60,7 +62,7 @@ is($child->parent->key->name, 'wibble');
 $child = AppEngine::API::Datastore::Entity->new('test', parent => $entity);
 $child_key = $child->put;
 
-$child = AppEngine::API::Datastore::get($child_key);
+$child = $db->get($child_key);
 is($child->key->name, undef);
 is($child->parent_key->name, 'wibble');
 is($child->parent->key->name, 'wibble');
