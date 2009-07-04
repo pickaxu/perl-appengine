@@ -59,6 +59,7 @@ datastore until it is put() for the first time.
 use Carp;
 use AppEngine::API::Datastore;
 use AppEngine::API::Datastore::Key;
+use AppEngine::API::Datastore::LazyEntity;
 use AppEngine::Service::Entity;
 
 =item new ( kind [, named_args ] [, initial_properties ] )
@@ -254,9 +255,10 @@ sub _from_pb {
     };
     bless $self, __PACKAGE__;
 
-    foreach my $element (@{$pb->propertys}) {
+    foreach my $property (@{$pb->propertys}) {
         my $value;
-        my $value_pb = $element->value;
+        my $value_pb = $property->value;
+
         if ($value_pb->has_int64Value) {
             $value = $value_pb->int64Value;
         } elsif ($value_pb->has_doubleValue) {
@@ -275,7 +277,29 @@ sub _from_pb {
             croak 'unknown property value type';
         }
 
-        $self->{$element->name} = $value;
+        if (exists $self->{$property->name}) {
+            # We've seen a property with this name before, which must mean it's
+            # a list and we have another item
+            if (defined $self->{$property->name} &&
+                ref $self->{$property->name} &&
+                ref $self->{$property->name} eq 'ARRAY') {
+                # It's already an array so we can append to it
+                push @{$self->{$property->name}}, $value;
+            } else {
+                # Convert it to an array and add our item to it
+                $self->{$property->name} = [
+                    $self->{$property->name},
+                    $value,
+                ];
+            }
+        } else {
+            # The property doesn't already exist yet - maybe it's a list?
+            if ($property->has_multiple && $property->multiple) {
+                $self->{$property->name} = [ $value ];
+            } else {
+                $self->{$property->name} = $value;
+            }
+        }
     }
 
     return $self;
@@ -297,15 +321,30 @@ sub _to_pb {
     # Add properties
     while ((my $key, my $value) = each %$self) {
         next if $key =~ m/^_/;
-        next unless defined $value;
 
-        my $property_value = $pb->add_property;
-        _property_to_pb($property_value, $key, $value);
+        _add_property($pb, $key, $value);
+    }
+}
+
+sub _add_property {
+    my ($target, $key, $value) = @_;
+    return unless defined $value;
+
+    if (defined $value && ref $value && ref $value eq 'ARRAY') {
+        foreach my $item (@$value) {
+            next unless defined $item;
+            my $property_value = $target->add_property;
+            _property_to_pb($property_value, $key, $item, 1);
+        }
+    } else {
+        my $property_value = $target->add_property;
+        _property_to_pb($property_value, $key, $value, 0);
     }
 }
 
 sub _property_to_pb {
-    my ($property_value, $key, $value) = @_;
+    my ($property_value, $key, $value, $multiple) = @_;
+    $multiple ||= 0;
 
     # This is a bit of a hack
     $key = '__key__' if $key eq 'key';
@@ -315,7 +354,7 @@ sub _property_to_pb {
     }
 
     $property_value->set_name($key);
-    $property_value->set_multiple(0);
+    $property_value->set_multiple($multiple);
 
     if (ref $value) {
         if ($value->isa('AppEngine::API::Datastore::Key')) {

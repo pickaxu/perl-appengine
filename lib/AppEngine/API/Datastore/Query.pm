@@ -200,7 +200,7 @@ sub filter {
     my $filter = $self->{_pb}->add_filter;
     $filter->set_op(OPERATORS->{$operator});
 
-    AppEngine::API::Datastore::Entity::_property_to_pb($filter->add_property, $property, $value);
+    AppEngine::API::Datastore::Entity::_add_property($filter, $property, $value);
 }
 
 
