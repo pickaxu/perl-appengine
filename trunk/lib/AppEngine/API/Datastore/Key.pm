@@ -336,6 +336,25 @@ sub _path_to_pb {
     }
 }
 
+sub _from_reference_value_pb {
+    my ($pb) = @_;
+
+    my $self = {
+        _ref => AppEngine::Service::Entity::Reference->new,
+    };
+    bless $self, __PACKAGE__;
+
+    $self->{_ref}->set_app($pb->app);
+    foreach my $element (@{$pb->pathelements}) {
+        my $element_dest = $self->{_ref}->path->add_element;
+        $element_dest->set_type($element->type) if $element->has_type;
+        $element_dest->set_id($element->id)     if $element->has_id;
+        $element_dest->set_name($element->name) if $element->has_name;
+    }
+
+    return $self;
+}
+
 sub _to_reference_value_pb {
     my ($self, $pb) = @_;
 

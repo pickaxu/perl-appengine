@@ -15,6 +15,8 @@ TODO: {
     local $TODO = 'not all modules documented yet';
 
     foreach my $module (@modules) {
-        pod_coverage_ok($module);
+        pod_coverage_ok($module, {
+            also_private => [qw(SCALAR)],
+        });
     }
 }
