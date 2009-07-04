@@ -33,7 +33,7 @@ $entity->{user1} = $user1;
 $entity->{user2} = $user2;
 $entity->put;
 
-$entity = AppEngine::API::Datastore::get($entity->key);
+$entity = AppEngine::API::Datastore->get($entity->key);
 compare_users($entity->{user1}, $user1);
 compare_users($entity->{user2}, $user2);
 
@@ -44,5 +44,5 @@ $entity->{nothing} = undef;
 ok(exists $entity->{nothing});
 $entity->put;
 
-$entity = AppEngine::API::Datastore::get($entity->key);
+$entity = AppEngine::API::Datastore->get($entity->key);
 ok(!exists $entity->{nothing});

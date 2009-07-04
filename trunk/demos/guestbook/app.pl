@@ -24,7 +24,7 @@ if ($ENV{REQUEST_METHOD} eq 'POST') {
     $greeting->{content} = $cgi->param('content');
     $greeting->{author} = users_get_current_user();
 
-    AppEngine::API::Datastore::put($greeting);
+    AppEngine::API::Datastore->put($greeting);
 }
 
 print '<html><body>';
