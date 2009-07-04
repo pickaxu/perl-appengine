@@ -9,7 +9,13 @@ use AppEngine::API::Datastore::Query;
 use AppEngine::APIProxy;
 use AppEngine::Python;
 use Data::Dumper;
-use Test::More tests => 12;
+use Test::More;
+
+if ($ENV{EXPENSIVE_TESTS}) {
+    plan tests => 25;
+} else {
+    plan skip_all => 'expensive test - export EXPENSIVE_TESTS=1 to run';
+}
 
 AppEngine::Python::initialize('appname');
 $AppEngine::APIProxy::bypass_client = 1;
