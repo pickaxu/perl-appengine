@@ -14,7 +14,7 @@ AppEngine::API::Datastore::Query - Perl version of google.appengine.ext.db.Query
     my $query = AppEngine::API::Datastore::Query->new('Song');
     $query->filter('title =', 'Imagine');
     $query->order('-date');
-    $query->ancestor(key);
+    $query->ancestor($key);
 
     while (my $song = $query->fetch) {
         print $song->{title}, "\n";
@@ -76,14 +76,52 @@ sub new {
     return $self;
 }
 
+=item set_limit ( limit )
 
+Limits the number of entities that will be returned by the query.
+
+If limit is not provided (or undef), any previously set limit will be cleared.
+
+Note that Datastore will return at most 1000 entities to the application,
+regardless of the limit set by set_limit().
+If you need to get more than 1000 entities you should make multiple queries
+and use set_offset().
+
+=cut
 
 sub set_limit {
-    $_[0]->{_pb}->set_limit($_[1]);
+    my ($self, $limit) = @_;
+
+    if (defined $limit) {
+        $self->{_pb}->set_limit($limit);
+    } else {
+        $self->{_pb}->clear_limit;
+    }
 }
 
+=item set_offset ( offset )
+
+Sets the number of results that will be skipped by the query.
+Note than setting an offset of '1' means 'skip the first result' - not 'start
+from the first result'.
+
+For example, if you want only the 5th result from a query:
+
+ $query->set_limit(1);
+ $query->set_offset(4);
+
+If offset is not provided (or undef), any previously set offset will be cleared.
+
+=cut
+
 sub set_offset {
-    $_[0]->{_pb}->set_offset($_[1]);
+    my ($self, $offset) = @_;
+
+    if (defined $offset) {
+        $self->{_pb}->set_offset($offset);
+    } else {
+        $self->{_pb}->clear_offset;
+    }
 }
 
 
@@ -201,8 +239,7 @@ Returns the number of results this query fetches.
 
 count() is somewhat faster than retrieving all of the data by a constant factor,
 but the running time still grows with the size of the result set.
-It's best to only use count() in cases where the count is expected to be small,
-or specify a limit.
+It's best to only use count() in cases where the count is expected to be small.
 
 Note: count() returns a maximum of 1000.
 If the actual number of entities that match the query criteria exceeds the
@@ -254,7 +291,11 @@ sub fetch {
     $self->_execute unless $self->{_cursor} || $self->{_more_results};
 
     if (@{$self->{_buffer}} == 0) {
-        return unless $self->{_more_results};
+        unless ($self->{_more_results}) {
+            # Reset the Query so the next call to fetch() starts again
+            $self->{_cursor} = undef;
+            return;
+        }
 
         # Buffer is empty, so get some more results
         my $req = AppEngine::Service::Datastore::NextRequest->new;
