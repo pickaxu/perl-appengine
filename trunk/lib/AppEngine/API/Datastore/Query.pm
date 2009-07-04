@@ -35,16 +35,17 @@ use AppEngine::Service::Base;
 use AppEngine::Service::Datastore;
 use Carp;
 use Data::Dumper;
+use Readonly;
 
-use constant SERVICE   => 'datastore_v3';
-use constant OPERATORS => {
-    '<'  => 1,
-    '<=' => 2,
-    '>'  => 3,
-    '>=' => 4,
-    '='  => 5,
-    'IN' => 6,
-};
+Readonly my $SERVICE   => 'datastore_v3';
+Readonly my %OPERATORS => (
+    '<'  => AppEngine::Service::Datastore::Query::Filter::Operator::LESS_THAN,
+    '<=' => AppEngine::Service::Datastore::Query::Filter::Operator::LESS_THAN_OR_EQUAL,
+    '>'  => AppEngine::Service::Datastore::Query::Filter::Operator::GREATER_THAN,
+    '>=' => AppEngine::Service::Datastore::Query::Filter::Operator::GREATER_THAN_OR_EQUAL,
+    '='  => AppEngine::Service::Datastore::Query::Filter::Operator::EQUAL,
+    'IN' => AppEngine::Service::Datastore::Query::Filter::Operator::IN,
+);
 
 our $DEFAULT_BUFFER_SIZE = 20;
 
@@ -155,8 +156,8 @@ sub order {
     my $order = $self->{_pb}->add_order;
     $order->set_property($property);
 
-    # TODO(davidsansome): how to use the enum name from the protobuf?
-    $order->set_direction(2) if $descending;
+    $order->set_direction(
+        AppEngine::Service::Datastore::Query::Order::Direction::DESCENDING) if $descending;
 }
 
 
@@ -183,7 +184,7 @@ Example:
 
 =cut
 
-my $filter_re_str = '^([^\s]+)(?:\s+(' . join('|', keys %{OPERATORS()}) . '))?\s*$';
+my $filter_re_str = '^([^\s]+)(?:\s+(' . join('|', keys %OPERATORS) . '))?\s*$';
 my $filter_re = qr/$filter_re_str/;
 
 sub filter {
@@ -198,7 +199,7 @@ sub filter {
     my $operator = $2 || '=';
 
     my $filter = $self->{_pb}->add_filter;
-    $filter->set_op(OPERATORS->{$operator});
+    $filter->set_op($OPERATORS{$operator});
 
     AppEngine::API::Datastore::Entity::_add_property($filter, $property, $value);
 }
@@ -250,7 +251,7 @@ maximum, count() returns a count of 1000.
 sub count {
     my $self = shift;
 
-    my $res_bytes = AppEngine::APIProxy::sync_call(SERVICE, 'Count', $self->{_pb});
+    my $res_bytes = AppEngine::APIProxy::sync_call($SERVICE, 'Count', $self->{_pb});
     my $res = AppEngine::Service::Integer32Proto->new;
     $res->parse_from_string($res_bytes);
 
@@ -260,7 +261,7 @@ sub count {
 sub _execute {
     my $self = shift;
 
-    my $res_bytes = AppEngine::APIProxy::sync_call(SERVICE, 'RunQuery', $self->{_pb});
+    my $res_bytes = AppEngine::APIProxy::sync_call($SERVICE, 'RunQuery', $self->{_pb});
     my $res = AppEngine::Service::Datastore::QueryResult->new;
     $res->parse_from_string($res_bytes);
 
@@ -302,7 +303,7 @@ sub fetch {
         $req->set_cursor($self->{_cursor});
         $req->set_count($self->{_buffer_size});
 
-        my $res_bytes = AppEngine::APIProxy::sync_call(SERVICE, 'Next', $req);
+        my $res_bytes = AppEngine::APIProxy::sync_call($SERVICE, 'Next', $req);
         my $res = AppEngine::Service::Datastore::QueryResult->new;
         $res->parse_from_string($res_bytes);
 
