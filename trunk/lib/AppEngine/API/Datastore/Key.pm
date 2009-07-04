@@ -284,8 +284,14 @@ sub str {
     return urlsafe_b64encode($self->{_ref}->serialize_to_string);
 }
 
+=item entity_group
 
-# Internal methods
+Returns the key of the root entity that has this entity as a child
+
+Two entities that share the same root ancestor are said to be in the same
+C<entity group>.
+
+=cut
 
 sub entity_group {
     my $self = shift;
@@ -293,6 +299,9 @@ sub entity_group {
 
     return AppEngine::API::Datastore::Key::from_path([@path[0, 1]]);
 }
+
+
+# Internal methods
 
 sub _last_element {
     my $i = $_[0]->{_ref}->path->element_size - 1;
