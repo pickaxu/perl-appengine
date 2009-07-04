@@ -11,8 +11,7 @@ use AppEngine::Service::Entity;
 use Carp;
 use Readonly;
 
-Readonly my $ROLLBACK_ERR => '__datastore_rollback';
-Readonly my $SERVICE      => 'datastore_v3';
+Readonly my $SERVICE => 'datastore_v3';
 
 our $current_transaction;
 our $rollback_requested;
