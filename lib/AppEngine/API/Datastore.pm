@@ -5,11 +5,17 @@ use warnings;
 
 use AppEngine::API::Datastore::Entity;
 use AppEngine::API::Datastore::Key;
+use AppEngine::Service::Base;
 use AppEngine::Service::Datastore;
 use AppEngine::Service::Entity;
 use Carp;
+use Readonly;
 
-use constant SERVICE => 'datastore_v3';
+Readonly my $ROLLBACK_ERR => '__datastore_rollback';
+Readonly my $SERVICE      => 'datastore_v3';
+
+our $current_transaction;
+our $rollback_requested;
 
 sub new {
     my ($pkg) = @_;
@@ -33,7 +39,11 @@ sub get {
         $key->_to_pb($req->add_key);
     }
 
-    my $res_bytes = AppEngine::APIProxy::sync_call(SERVICE, 'Get', $req);
+    if ($pkg->in_transaction) {
+        $req->transaction->set_handle($current_transaction);
+    }
+
+    my $res_bytes = AppEngine::APIProxy::sync_call($SERVICE, 'Get', $req);
     $res->parse_from_string($res_bytes);
 
     my @ret;
@@ -62,7 +72,11 @@ sub put {
         $entity->_to_pb($req->add_entity);
     }
 
-    my $res_bytes = AppEngine::APIProxy::sync_call(SERVICE, 'Put', $req);
+    if ($pkg->in_transaction) {
+        $req->transaction->set_handle($current_transaction);
+    }
+
+    my $res_bytes = AppEngine::APIProxy::sync_call($SERVICE, 'Put', $req);
     $res->parse_from_string($res_bytes);
 
     my @ret;
@@ -93,8 +107,82 @@ sub delete {
         }
     }
 
-    AppEngine::APIProxy::sync_call(SERVICE, 'Delete', $req);
+    if ($pkg->in_transaction) {
+        $req->transaction->set_handle($current_transaction);
+    }
+
+    AppEngine::APIProxy::sync_call($SERVICE, 'Delete', $req);
 }
 
+sub in_transaction {
+    return defined $current_transaction;
+}
+
+sub run_in_transaction {
+    my ($pkg, $sub, @args) = @_;
+
+    if ($pkg->in_transaction) {
+        croak 'cannot call run_in_transaction from within a transaction';
+    }
+
+    # Begin transaction
+    local $current_transaction = $pkg->_begin_transaction;
+    local $rollback_requested  = 0;
+
+    # Call the user's function
+    my $ret = eval { &$sub(@args) };
+
+    # Commit or rollback
+    if ($@) {
+        $pkg->_rollback_transaction();
+
+        if ($rollback_requested) {
+            return;
+        } else {
+            die $@;
+        }
+    } else {
+        $pkg->_commit_transaction();
+    }
+
+    return $ret;
+}
+
+sub rollback {
+    my $pkg = shift;
+
+    unless ($pkg->in_transaction) {
+        croak 'cannot call rollback from outside a transaction';
+    }
+
+    $rollback_requested = 1;
+    croak 'rolling back datastore transaction';
+}
+
+sub _begin_transaction {
+    my ($pkg) = @_;
+
+    my $req = AppEngine::Service::VoidProto->new;
+    my $res = AppEngine::Service::Datastore::Transaction->new;
+
+    my $res_bytes = AppEngine::APIProxy::sync_call($SERVICE, 'BeginTransaction', $req);
+    $res->parse_from_string($res_bytes);
+
+    return $res->handle;
+}
+
+sub _rollback_transaction {
+    my $req = AppEngine::Service::Datastore::Transaction->new;
+    $req->set_handle($current_transaction);
+
+    AppEngine::APIProxy::sync_call($SERVICE, 'Rollback', $req);
+}
+
+sub _commit_transaction {
+    my $req = AppEngine::Service::Datastore::Transaction->new;
+    $req->set_handle($current_transaction);
+
+    AppEngine::APIProxy::sync_call($SERVICE, 'Commit', $req);
+}
 
 1;
