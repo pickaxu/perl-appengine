@@ -17,7 +17,7 @@ sub get {
 
     foreach my $key (@_) {
         croak 'expected Key, got ' . ref($key)
-            unless ref($key) eq 'AppEngine::API::Datastore::Key';
+            unless $key->isa('AppEngine::API::Datastore::Key');
 
         $key->_to_pb($req->add_key);
     }
@@ -44,7 +44,7 @@ sub put {
 
     foreach my $entity (@_) {
         croak 'expected Entity, got ' . ref($entity)
-            unless ref($entity) eq 'AppEngine::API::Datastore::Entity';
+            unless $entity->isa('AppEngine::API::Datastore::Entity');
 
         $entity->_to_pb($req->add_entity);
     }
@@ -68,15 +68,13 @@ sub delete {
     my $req = AppEngine::Service::Datastore::DeleteRequest->new;
 
     foreach my $arg (@_) {
-        my $type = ref($arg);
-
-        if ($type eq 'AppEngine::API::Datastore::Key') {
+        if ($arg->isa('AppEngine::API::Datastore::Key')) {
             $arg->_to_pb($req->add_key);
-        } elsif ($type eq 'AppEngine::API::Datastore::Entity') {
+        } elsif ($arg->isa('AppEngine::API::Datastore::Entity')) {
             croak 'cannot delete entity that is not saved' unless $arg->is_saved;
             $arg->key->_to_pb($req->add_key);
         } else {
-            croak 'expected Key or Entity, got ' . $type;
+            croak 'expected Key or Entity, got ' . ref($arg);
         }
     }
 
