@@ -43,7 +43,7 @@ NOTE: The following may not be necessary for Perl App-Engine, but it is necessar
    cpan> install MIME::Base64::URLSafe
 
 NOTE: Before you install Moose (above), you might want to install the following modules.
-      Some will be drawn in automatically my installing Moose.
+      Some will be drawn in automatically by installing Moose.
       Others are useful in the Moose tests.
 
    cpan> install DateTime
